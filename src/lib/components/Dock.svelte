@@ -15,32 +15,43 @@ Usage:
   ```
 -->
 <script>
+	import Slider from './Slider.svelte';
+
 	/**
 	 * @typedef {Object} DockItem
 	 * @property {string} id - Unique identifier for the dock item
 	 * @property {string} label - Display label for the item
 	 * @property {string} [icon] - Optional icon class or path
 	 * @property {() => void} [action] - Optional click handler
+	 * @property {boolean} [hasSlider] - Whether this item shows a slider instead of dropdown
 	 */
 
-	/** @type {{ position?: 'bottom' | 'top' | 'left' | 'right', onItemClick?: (id: string, label: string) => void }} */
-	let { position = $bindable('bottom'), onItemClick } = $props();
+	/** @type {{ position?: 'bottom' | 'top' | 'left' | 'right', onItemClick?: (id: string, label: string) => void, onZoomChange?: (value: number) => void }} */
+	let { position = $bindable('bottom'), onItemClick, onZoomChange } = $props();
 
 	let activeDropdown = $state(null);
 	let closeTimeout = $state(null);
+	let zoomLevel = $state(1); // Zoom level from 0.1 to 3.0
 
-	// Built-in dock items with dropdown menus
+	// Determine slider orientation based on dock position
+	const sliderOrientation = $derived(() => {
+		return (position === 'left' || position === 'right') ? 'horizontal' : 'vertical';
+	});
+
+	// Handle zoom level changes
+	$effect(() => {
+		if (onZoomChange) {
+			onZoomChange(zoomLevel);
+		}
+	});
+
+	// Built-in dock items with dropdown menus and sliders
 	const items = [
 		{
 			id: 'zoom',
 			label: 'Zoom',
 			icon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M7 10l6 0" /><path d="M10 7l0 6" /><path d="M21 21l-6 -6" /></svg>',
-			dropdown: [
-				{ id: 'zoom-in', label: 'Zoom In', icon: '🔍+' },
-				{ id: 'zoom-out', label: 'Zoom Out', icon: '🔍-' },
-				{ id: 'zoom-fit', label: 'Fit to Screen', icon: '📐' },
-				{ id: 'zoom-reset', label: 'Reset Zoom', icon: '🎯' }
-			]
+			hasSlider: true
 		},
 		{
 			id: 'new-pane',
@@ -302,34 +313,63 @@ Usage:
 			</button>
 
 			{#if activeDropdown === item.id}
-				<div class="dropdown dropdown--{position}">
-					{#each item.dropdown as dropdownItem (dropdownItem.id)}
-						<button
-							class="dropdown-item"
-							onclick={(e) => {
-								e.stopPropagation();
-								handleDropdownClick(dropdownItem.id, dropdownItem.label);
-							}}
-							title={dropdownItem.label}
-						>
-							<span class="dropdown-item__icon">{dropdownItem.icon}</span>
-							<span class="dropdown-item__label">{dropdownItem.label}</span>
-						</button>
-					{/each}
-				</div>
+				{#if item.hasSlider}
+					<div class="slider-container slider-container--{position}">
+						<Slider 
+							bind:value={zoomLevel}
+							min={0.1}
+							max={3}
+							step={0.1}
+							orientation={sliderOrientation()}
+							label="Zoom Level"
+							--track-thickness="var(--slider-track-thickness)"
+							--thumb-size="var(--slider-thumb-size)"
+						/>
+						<div class="zoom-display">{Math.round(zoomLevel * 100)}%</div>
+					</div>
+				{:else}
+					<div class="dropdown dropdown--{position}">
+						{#each item.dropdown as dropdownItem (dropdownItem.id)}
+							<button
+								class="dropdown-item"
+								onclick={(e) => {
+									e.stopPropagation();
+									handleDropdownClick(dropdownItem.id, dropdownItem.label);
+								}}
+								title={dropdownItem.label}
+							>
+								<span class="dropdown-item__icon">{dropdownItem.icon}</span>
+								<span class="dropdown-item__label">{dropdownItem.label}</span>
+							</button>
+						{/each}
+					</div>
+				{/if}
 			{/if}
 		</div>
 	{/each}
 </div>
 
 <style>
+	/* CSS Custom Properties for consistent sizing */
+	.dock {
+		--dock-icon-size: 1rem;
+		--dock-padding-block: 0.5rem;
+		--dock-padding-inline: 0.75rem;
+		--dock-border-radius: 0.5rem;
+		--dock-gap: 0.375rem;
+		--dropdown-min-width: 11.25rem; /* 180px */
+		--dropdown-max-width: 18.75rem; /* 300px */
+		--slider-track-thickness: 0.25rem;
+		--slider-thumb-size: 1rem;
+	}
+
 	.dock {
 		display: flex;
-		gap: 8px;
-		padding: 12px;
+		gap: var(--dock-gap);
+		padding: var(--dock-padding-inline);
 		background: rgba(255, 255, 255, 0.1);
 		backdrop-filter: blur(10px);
-		border-radius: 12px;
+		border-radius: var(--dock-border-radius);
 		border: 1px solid rgba(255, 255, 255, 0.2);
 		opacity: 0.3;
 		transition: opacity 0.3s ease;
@@ -356,16 +396,16 @@ Usage:
 	.dock-item {
 		display: flex;
 		align-items: center;
-		gap: 6px;
-		padding: 8px 12px;
+		gap: var(--dock-gap);
+		padding: var(--dock-padding-block) var(--dock-padding-inline);
 		background: rgba(255, 255, 255, 0.1);
 		border: 1px solid rgba(255, 255, 255, 0.2);
-		border-radius: 8px;
+		border-radius: var(--dock-border-radius);
 		color: white;
 		cursor: pointer;
 		transition: all 0.2s ease;
-		font-size: 14px;
-		min-width: 0;
+		font-size: 0.875rem; /* 14px */
+		min-width: max-content; /* Dynamic: size based on content */
 	}
 
 	.dock-item:hover {
@@ -387,9 +427,10 @@ Usage:
 		background: rgba(255, 255, 255, 0.15);
 		backdrop-filter: blur(15px);
 		border: 1px solid rgba(255, 255, 255, 0.3);
-		border-radius: 8px;
-		padding: 6px;
-		min-width: 180px;
+		border-radius: var(--dock-border-radius);
+		padding: var(--dock-gap);
+		/* Dynamic: responsive width with min/max constraints */
+		width: clamp(var(--dropdown-min-width), max-content, var(--dropdown-max-width));
 		z-index: 1000;
 		opacity: 0;
 		animation: dropdownFadeIn 0.2s ease forwards;
@@ -530,6 +571,74 @@ Usage:
 		text-overflow: ellipsis;
 	}
 
+	/* Slider container styles */
+	.slider-container {
+		position: absolute;
+		background: rgba(255, 255, 255, 0.15);
+		backdrop-filter: blur(15px);
+		border: 1px solid rgba(255, 255, 255, 0.3);
+		border-radius: 8px;
+		padding: 0.75rem;
+		z-index: 1000;
+		opacity: 0;
+		animation: dropdownFadeIn 0.2s ease forwards;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	/* Slider container positioning based on dock position */
+	.slider-container--bottom {
+		bottom: 100%;
+		left: 50%;
+		transform: translateX(-50%);
+		margin-bottom: var(--dock-gap);
+		flex-direction: column;
+		/* Dynamic: inherit width from parent button, with minimum for usability */
+		width: 100%;
+		min-width: 2.5rem;
+	}
+
+	.slider-container--top {
+		top: 100%;
+		left: 50%;
+		transform: translateX(-50%);
+		margin-top: var(--dock-gap);
+		flex-direction: column;
+		/* Dynamic: inherit width from parent button, with minimum for usability */
+		width: 100%;
+		min-width: 2.5rem;
+	}
+
+	.slider-container--left {
+		left: 100%;
+		top: 50%;
+		transform: translateY(-50%);
+		margin-left: var(--dock-gap);
+		flex-direction: row;
+		/* Container width: 5rem slider + space for percentage display */
+		width: max-content;
+	}
+
+	.slider-container--right {
+		right: 100%;
+		top: 50%;
+		transform: translateY(-50%);
+		margin-right: var(--dock-gap);
+		flex-direction: row;
+		/* Container width: 5rem slider + space for percentage display */
+		width: max-content;
+	}
+
+	.zoom-display {
+		color: white;
+		font-size: 12px;
+		font-weight: 500;
+		text-align: center;
+		min-width: 40px;
+		white-space: nowrap;
+	}
+
 	/* Responsive behavior */
 	@media (max-width: 768px) {
 		.dock-item__label {
@@ -537,7 +646,8 @@ Usage:
 		}
 		
 		.dock-item {
-			min-width: 40px;
+			/* Ensure minimum touch target size on mobile */
+			min-width: 2.5rem; /* 40px */
 			justify-content: center;
 		}
 	}
