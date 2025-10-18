@@ -2,6 +2,24 @@ import { app, BrowserWindow, screen } from "electron";
 import path from "node:path";
 import started from "electron-squirrel-startup";
 
+import { storageManager } from './storageManager';
+
+async function testStorage() {
+  await storageManager.saveCoordinates({ x: 10, y: 20 }, { x: 30, y: 40 });
+  const loaded = await storageManager.loadCoordinates();
+  console.log('Loaded from main store:', loaded);
+  console.log('Storage file path:', (storageManager as any).store.path);
+}
+
+testStorage();
+
+
+// ...other imports...
+
+
+// Ensure storage manager is initialized so IPC handlers are registered
+import './storageManager';
+
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit();
@@ -14,9 +32,10 @@ const createWindow = () => {
     height: screen.getPrimaryDisplay().workAreaSize.height,
     frame: false,
     webPreferences: {
-      preload: path.join(import.meta.dirname, "preload.js"),
+      preload: path.join(__dirname, 'preload.js'),
     },
   });
+
 
   mainWindow.maximize();
 
@@ -35,7 +54,7 @@ const createWindow = () => {
   } else {
     mainWindow.loadFile(
       path.join(
-        import.meta.dirname,
+        __dirname,
         `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`,
       ),
     );
