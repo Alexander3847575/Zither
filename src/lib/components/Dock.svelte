@@ -16,6 +16,17 @@ Usage:
 -->
 <script>
 	import Slider from './Slider.svelte';
+	
+	// SVG icon paths (served from static folder)
+	const worldPlusIcon = '/icons/world-plus.svg';
+	const fileUploadIcon = '/icons/file-upload.svg';
+	const mapIcon = '/icons/map.svg';
+	const sparklesIcon = '/icons/sparkles.svg';
+	const paletteIcon = '/icons/palette.svg';
+	const zoomInIcon = '/icons/zoom-in.svg';
+	const browserPlusIcon = '/icons/browser-plus.svg';
+	const layoutDashboardIcon = '/icons/layout-dashboard.svg';
+	const settingsIcon = '/icons/settings.svg';
 
 	/**
 	 * @typedef {Object} DockItem
@@ -50,40 +61,33 @@ Usage:
 		{
 			id: 'zoom',
 			label: 'Zoom',
-			icon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /><path d="M7 10l6 0" /><path d="M10 7l0 6" /><path d="M21 21l-6 -6" /></svg>',
+			icon: zoomInIcon,
 			hasSlider: true
 		},
 		{
 			id: 'new-pane',
 			label: 'New Pane',
-			icon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 8h16" /><path d="M12 20h-6a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v6" /><path d="M8 4v4" /><path d="M16 19h6" /><path d="M19 16v6" /></svg>',
+			icon: browserPlusIcon,
 			dropdown: [
-				{ id: 'new-text', label: 'Text Pane', icon: '📝' },
-				{ id: 'new-image', label: 'Image Pane', icon: '🖼️' },
-				{ id: 'new-terminal', label: 'Terminal Pane', icon: '💻' },
-				{ id: 'new-browser', label: 'Browser Pane', icon: '🌐' }
+				{ id: 'new-browser', label: 'Browser Pane', icon: worldPlusIcon },
+				{ id: 'new-file', label: 'File Pane', icon: fileUploadIcon },
 			]
 		},
 		{
 			id: 'world-map',
 			label: 'World Map',
-			icon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 4h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1" /><path d="M5 16h4a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-2a1 1 0 0 1 1 -1" /><path d="M15 12h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1" /><path d="M15 4h4a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-2a1 1 0 0 1 1 -1" /></svg>',
+			icon: layoutDashboardIcon,
 			dropdown: [
-				{ id: 'map-satellite', label: 'Satellite View', icon: '🛰️' },
-				{ id: 'map-terrain', label: 'Terrain View', icon: '🏔️' },
-				{ id: 'map-street', label: 'Street View', icon: '🛣️' },
-				{ id: 'map-political', label: 'Political View', icon: '🏛️' }
+				{ id: 'world-map', label: 'World Map', icon: mapIcon },
+				{ id: 'auto-arrange', label: 'Auto Arrange', icon: sparklesIcon }
 			]
 		},
 		{
 			id: 'settings',
 			label: 'Settings',
-			icon: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z" /><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /></svg>',
+			icon: settingsIcon,
 			dropdown: [
-				{ id: 'preferences', label: 'Preferences', icon: '🎛️' },
-				{ id: 'shortcuts', label: 'Keyboard Shortcuts', icon: '⌨️' },
-				{ id: 'plugins', label: 'Plugins', icon: '🔌' },
-				{ id: 'about', label: 'About', icon: 'ℹ️' }
+				{ id: 'theme', label: 'Theme', icon: paletteIcon }
 			]
 		}
 	];
@@ -303,6 +307,8 @@ Usage:
 				{#if item.icon}
 					{#if item.icon.startsWith('<svg')}
 						<span class="dock-item__icon dock-item__icon--svg">{@html item.icon}</span>
+					{:else if item.icon.endsWith('.svg')}
+						<img src={item.icon} alt="" class="dock-item__icon dock-item__icon--img" width="16" height="16" />
 					{:else}
 						<span class="dock-item__icon">{item.icon}</span>
 					{/if}
@@ -338,7 +344,13 @@ Usage:
 								}}
 								title={dropdownItem.label}
 							>
-								<span class="dropdown-item__icon">{dropdownItem.icon}</span>
+								{#if dropdownItem.icon.startsWith('<svg')}
+									<span class="dropdown-item__icon dropdown-item__icon--svg">{@html dropdownItem.icon}</span>
+								{:else if dropdownItem.icon.endsWith('.svg')}
+									<img src={dropdownItem.icon} alt="" class="dropdown-item__icon dropdown-item__icon--img" width="16" height="16" />
+								{:else}
+									<span class="dropdown-item__icon">{dropdownItem.icon}</span>
+								{/if}
 								<span class="dropdown-item__label">{dropdownItem.label}</span>
 							</button>
 						{/each}
@@ -549,6 +561,18 @@ Usage:
 		text-align: center;
 	}
 
+	.dropdown-item__icon--svg {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		color: white; /* This sets the stroke color via currentColor */
+	}
+
+	.dropdown-item__icon--img {
+		display: inline-block;
+		filter: invert(1); /* Make SVG icons white to match the theme */
+	}
+
 	.dropdown-item__label {
 		white-space: nowrap;
 	}
@@ -563,6 +587,11 @@ Usage:
 		align-items: center;
 		justify-content: center;
 		color: white; /* This sets the stroke color via currentColor */
+	}
+
+	.dock-item__icon--img {
+		display: inline-block;
+		filter: invert(1); /* Make SVG icons white to match the theme */
 	}
 
 	.dock-item__label {
