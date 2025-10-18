@@ -25,6 +25,18 @@ declare global {
 		globalOffset: [Tween<number>, Tween<number>],
 		effectiveDelta: [number, number], // 
 		directionData: string,
+		activeChunk: string,
+	}
+
+	export interface PaneData {
+		uuid: string,
+		paneType: string,
+		src: string,
+		chunkCoords: [number, number],
+		paneCoords: [number, number],
+		paneSize: [number, number],
+		semanticTags: string,
+		
 	}
 }
 

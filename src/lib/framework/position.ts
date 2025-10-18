@@ -11,27 +11,25 @@ export class Viewport {
 }
 
 export class Grid {
-    private xDivisions: number;
-    private yDivisions: number;
-    constructor(xDivisions: number, yDivisions: number) {
+    xDivisions: number;
+    yDivisions: number;
+    xUnits: number;
+    yUnits: number;
+
+    constructor(xDivisions: number, yDivisions: number, xUnits: number, yUnits: number) {
         this.xDivisions = xDivisions;
         this.yDivisions = yDivisions;
-    }
-    public getXDivisions() {
-        return this.xDivisions;
-    }
-    public getYDivisions() {
-        return this.yDivisions;
+        this.xUnits = xUnits;
+        this.yUnits = yUnits;
     }
 }
 
 export class GridPosition {
 
-    private viewport: Viewport;
     private grid: Grid;
 
-    private viewportX: number = 0;
-    private viewportY: number = 0;
+    private pixelX: number = 0;
+    private pixelY: number = 0;
 
     private gridX: number;
     private gridY: number;
@@ -41,28 +39,27 @@ export class GridPosition {
 
    
 
-    constructor(grid: Grid, viewport: Viewport, gridX?: number, gridY?: number) {
+    constructor(grid: Grid, gridX?: number, gridY?: number) {
         
         this.grid = grid;
 
         this.gridX = gridX ?? 0;
         this.gridY = gridY ?? 0;
 
-        if (this.gridX >= grid.getXDivisions() || this.gridY >= this.grid.getYDivisions())
-            throw new Error(`Attempted to initialize GridPosition with values (${this.gridX}, ${this.gridY}) in a Grid of dimensions (${this.grid.getXDivisions}, ${this.grid.getYDivisions})`);
+        if (this.gridX >= grid.xDivisions || this.gridY >= this.grid.yDivisions)
+            throw new Error(`Attempted to initialize GridPosition with values (${this.gridX}, ${this.gridY}) in a Grid of dimensions (${this.grid.xDivisions}, ${this.grid.yDivisions})`);
         
-        this.viewport = viewport;
         
-        this.recalcuateViewportValues();
+        this.recalcuateValues();
         
     }
 
-    private recalcuateViewportValues() {
-        this.gridXRatio = this.viewport.pixelsX / this.grid.getXDivisions();
-        this.gridYRatio = this.viewport.pixelsY / this.grid.getYDivisions();
+    private recalcuateValues() {
+        this.gridXRatio = this.pixelX / this.grid.xDivisions;
+        this.gridYRatio = this.pixelY / this.grid.yDivisions;
 
-        this.viewportX = this.gridX * this.gridXRatio;
-        this.viewportY = this.gridY * this.gridYRatio;
+        this.pixelX = this.gridX * this.gridXRatio;
+        this.pixelY = this.gridY * this.gridYRatio;
     }
     
     public getGridX() {
@@ -74,17 +71,17 @@ export class GridPosition {
     }
 
     public setFromGridX(newVal: number) {
-        if (newVal >= this.grid.getXDivisions())
-            throw new Error(`Attempted to set GridPosition x as ${this.gridX} in a Grid of dimensions (${this.grid.getXDivisions}, ${this.grid.getYDivisions})`);
+        if (newVal >= this.grid.yDivisions)
+            throw new Error(`Attempted to set GridPosition x as ${this.gridX} in a Grid of dimensions (${this.grid.xDivisions}, ${this.grid.yDivisions})`);
         this.gridX = newVal;
-        this.viewportX = this.gridX * this.gridXRatio;
+        this.pixelX = this.gridX * this.gridXRatio;
     }
 
     public setFromGridY(newVal: number) {
-        if (newVal >= this.grid.getYDivisions())
-            throw new Error(`Attempted to set GridPosition y as ${this.gridY} in a Grid of dimensions (${this.grid.getXDivisions}, ${this.grid.getYDivisions})`);
+        if (newVal >= this.grid.yDivisions)
+            throw new Error(`Attempted to set GridPosition y as ${this.gridY} in a Grid of dimensions (${this.grid.xDivisions}, ${this.grid.yDivisions})`);
         this.gridY = newVal;
-        this.viewportY = this.gridY * this.gridYRatio;
+        this.pixelY = this.gridY * this.gridYRatio;
     }
 
     public setFromViewportX(newVal: number) {
@@ -95,14 +92,9 @@ export class GridPosition {
         this.setFromGridY(Math.round(newVal / this.gridYRatio));
     }
 
-    public setViewport(newVal: Viewport) {
-        this.viewport = newVal;
-        this.recalcuateViewportValues();
-    }
-
     public setGrid(newVal: Grid) {
         this.grid = newVal;
-        this.recalcuateViewportValues();
+        this.recalcuateValues();
     }
 
 }

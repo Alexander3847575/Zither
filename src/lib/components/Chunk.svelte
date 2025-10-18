@@ -16,6 +16,9 @@
 		return evenAmount;
 	}
 
+    function onmouseenter(event: Event) {
+        appState.activeChunk = uuid;
+    };
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -34,10 +37,11 @@
 	absolute 
 	bg-gray-50 flex justify-center items-center text-center w-full h-full"
 	role="application"
+    {onmouseenter}
 >
 	<div class="block">
-		<p>
+		<!--<p>
 			{coords}
-		</p>
+		</p>-->
 	</div>
 </div>
