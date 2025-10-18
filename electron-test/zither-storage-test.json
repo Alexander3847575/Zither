@@ -1,0 +1,12 @@
+{
+	"zither_coordinates": {
+		"first": {
+			"x": 10,
+			"y": 20
+		},
+		"second": {
+			"x": 30,
+			"y": 40
+		}
+	}
+}
