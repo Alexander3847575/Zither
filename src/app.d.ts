@@ -38,6 +38,15 @@ declare global {
 		semanticTags: string,
 		
 	}
+	
+	export const PaneState = {
+		Default: "Default",
+		MovingPane: "MovingPane",
+		ResizingPane: "ResizingPane",
+		Maximized: "Maximized",
+	} as const;
+
+	export type PaneStateKey = keyof typeof PaneState;
 }
 
 export {};

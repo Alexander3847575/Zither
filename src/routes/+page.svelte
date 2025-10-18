@@ -1,7 +1,6 @@
 <script lang="ts">
     import ChunkRoot from "$lib/components/ChunkRoot.svelte";
     import Dock from "$lib/components/Dock.svelte";
-  import { ChunkManager } from "$lib/framework/chunkManager";
     import { setContext } from "svelte";
     import { cubicOut } from "svelte/easing";
     import { Tween } from "svelte/motion";
@@ -76,13 +75,13 @@
     if (doubleClickEligible) {
         //console.log("Double click detected!");
         switch (event.button) {
-        case 0:
-            appState.state = AppStates.MovingPane;
-            break;
-        case 1:
-            //console.log("Open context menu")
-            appState.state = AppStates.InteractMenu;
-            break;
+            case 0:
+                appState.state = AppStates.MovingPane;
+                break;
+            case 1:
+                //console.log("Open context menu")
+                appState.state = AppStates.InteractMenu;
+                break;
         }
         return;
     }
@@ -117,6 +116,7 @@
             }, doubleClickInterval); // Delay to check for double-click
 
         } else {
+
             doubleClickEligible = false;
         }
 
@@ -146,12 +146,13 @@
     });
 
     function snapViewportValue() {
+        let snapTolerance = 4
         if (appState.state == AppStates.MovingSpace) {
             let newViewportPos = appState.viewportPos;
-            if (Math.abs(mouseDelta[0]) >= chunkDimensions[0].current / 2){
+            if (Math.abs(mouseDelta[0]) >= chunkDimensions[0].current / snapTolerance){
                 newViewportPos[0] += 1 * Math.sign(mouseDelta[0]) * -1;
             }
-            if (Math.abs(mouseDelta[1]) >= chunkDimensions[1].current / 2) {
+            if (Math.abs(mouseDelta[1]) >= chunkDimensions[1].current / snapTolerance) {
                 newViewportPos[1] += 1 * Math.sign(mouseDelta[1]);
             }
             appState.viewportPos = newViewportPos;

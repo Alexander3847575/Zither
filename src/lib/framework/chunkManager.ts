@@ -85,6 +85,24 @@ export class ChunkManager {
         let chunkHolder = this.loadedChunks.get(chunkCoords[0])?.get(chunkCoords[1]);
         if (chunkHolder == undefined)
             return;
+
+        // Prefer adding the pane through the Chunk component so it becomes a real child and
+        // inherits context set by ancestors. The mounted Chunk component exposes addPane.
+        try {
+            // chunkHolder.chunk is the value returned by mount(Chunk, ...)
+            if (typeof (chunkHolder.chunk as any).addPane === 'function') {
+                (chunkHolder.chunk as any).addPane(data);
+                // We don't have direct access to the Pane instance here (it's managed by Chunk),
+                // so store a marker object in the map for bookkeeping.
+                chunkHolder.panes.set(data.uuid, null as any);
+                return;
+            }
+        } catch (e) {
+            // fall back to old behavior if chunk instance doesn't expose addPane
+            console.warn('Chunk.addPane call failed, falling back to programmatic mount', e);
+        }
+
+        // Fallback: mount pane programmatically into the chunk DOM element. This won't inherit context.
         let target = document.querySelector(`.chunk-${chunkHolder.uuid}`)
         if (target == null)
             return;
@@ -105,11 +123,33 @@ export class ChunkManager {
         let chunkHolder = this.loadedChunks.get(chunkCoords[0])?.get(chunkCoords[1]);
         if (chunkHolder == undefined)
             return;
-        let target = document.querySelector(`.chunk-${chunkHolder.uuid}`)
-        if (target == null)
+        // If the pane was programmatically mounted we stored the instance in panes map.
+        const paneInstance = chunkHolder.panes.get(uuid);
+        if (paneInstance) {
+            try {
+                unmount(paneInstance);
+            } catch (e) {
+                console.warn('Failed to unmount pane instance', e);
+            }
+            chunkHolder.panes.delete(uuid);
             return;
-        unmount(chunkHolder.panes)
-        chunkHolder.panes.delete(uuid);
+        }
+
+        // Otherwise the pane is managed by the Chunk component. Try to call its removePane API.
+        try {
+            if (typeof chunkHolder.chunk?.removePane === 'function') {
+                chunkHolder.chunk.removePane(uuid);
+                chunkHolder.panes.delete(uuid);
+                return;
+            }
+        } catch (e) {
+            console.warn('Chunk.removePane call failed', e);
+        }
+
+        // As a last resort, try to find the element and unmount any child components gracefully.
+        const target = document.querySelector(`.chunk-${chunkHolder.uuid}`);
+        if (!target) return;
+        // nothing else we can reliably do here
     }
 
 

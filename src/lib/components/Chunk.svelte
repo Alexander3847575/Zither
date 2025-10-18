@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getContext, onDestroy } from 'svelte';
+	import Pane from "$lib/components/Pane.svelte";
 
 	let appState: AppState = getContext('appstate');
 	let  { coords, uuid } = $props();
@@ -8,6 +9,17 @@
 	let dist = $derived([Math.abs(coords[0] - appState.viewportPos[0]), Math.abs(coords[1] - appState.viewportPos[1])]);
 	let left = $state(0);
 	let top = $state(0);
+
+	// panes owned by this Chunk. Export API so programmatic mounters can add panes
+	let panes: PaneData[] = $state([]);
+
+	export function addPane(data: PaneData) {
+		panes = [...panes, data];
+	}
+
+	export function removePane(uuidToRemove: string) {
+		panes = panes.filter(p => p.uuid !== uuidToRemove);
+	}
 
 	function fitMaxAmountEvenly(totalSize: number, minimumSize: number): number {
 		let canFit = totalSize / minimumSize;
@@ -43,5 +55,8 @@
 		<!--<p>
 			{coords}
 		</p>-->
+		{#each panes as p (p.uuid)}
+			<Pane data={p} />
+		{/each}
 	</div>
 </div>

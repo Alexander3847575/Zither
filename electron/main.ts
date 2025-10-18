@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, screen } from "electron";
 import path from "node:path";
 import started from "electron-squirrel-startup";
 
@@ -10,11 +10,20 @@ if (started) {
 const createWindow = () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: screen.getPrimaryDisplay().workAreaSize.width,
+    height: screen.getPrimaryDisplay().workAreaSize.height,
+    frame: false,
     webPreferences: {
       preload: path.join(import.meta.dirname, "preload.js"),
     },
+  });
+
+  mainWindow.maximize();
+
+  mainWindow.on("resize", function () {
+    var size = mainWindow.getSize();
+    var width = size[0];
+    var height = size[1];
   });
 
   // and load the index.html of the app.
