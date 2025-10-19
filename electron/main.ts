@@ -37,6 +37,9 @@ const createWindow = () => {
     frame: false,
     webPreferences: {
       preload: path.join(import.meta.dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      webviewTag: true,
     },
   });
 

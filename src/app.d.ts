@@ -35,6 +35,7 @@ declare global {
 		effectiveDelta: [number, number], // 
 		directionData: string,
 		activeChunk: string,
+		activePane: string,
 		selectedPanes: SvelteSet<string>, // UUIDs of selected panes
 		selectionMode: boolean, // Whether we're in selection mode
 		// Selection methods
