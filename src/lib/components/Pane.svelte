@@ -1,8 +1,9 @@
 <script lang="ts">
-    import { getContext, onMount } from "svelte";
+    import { getContext, onDestroy, onMount } from "svelte";
     import { cubicIn, elasticOut, quartOut } from "svelte/easing";
     import { Tween } from "svelte/motion";
-    import { ChunkManager } from "$lib/framework/chunkManager";
+    import { marked }from 'marked';
+  import type { ChunkManager } from "$lib/framework/chunkManager";
 
     const PaneState = {
 		Default: "Default",
@@ -123,6 +124,7 @@
     function onmouseenter() {
         active = true;
         scale.set(1.02);
+        appState.activePane = paneData.uuid;
     }
     function onmouseleave() {
         active = false;
@@ -142,7 +144,7 @@
             return;
         }
         
-        let resizeMargin = 10;
+        let resizeMargin = 0;
         if (event.x > xOffset + width - resizeMargin) {
             console.log("right")
             // resize right
@@ -202,6 +204,7 @@
         
         // Trigger persistence when dragging/resizing ends
         triggerPersistence();
+        paneState = "Maximized";
     }
     function onmousemove(event: MouseEvent) {
         if (dragging) {
@@ -230,7 +233,6 @@
                 //yOffset += event.movementY;
                 unscaledHeight += event.movementY;
                 paneData.paneSize[1] = height / appState.unitToPixelRatio.current;
-
                 break;
             case 4: 
                 xOffset += event.movementX;
@@ -261,31 +263,233 @@
     }
 
 
-    // PDF preview state (use $state so Svelte reactivity updates the template)
-	let pdfUrl = $state<string | null>(null);
+    // File preview state (use $state so Svelte reactivity updates the template)
+    let pdfUrl = $state<string | null>(null);
     let imgUrl =  $state<string | null>(null);
-	let _prevUrl: string | null = null;
-    function onFileChange(e: Event) {
+    let markdownHtml = $state<string | null>(null);
+    let urlInput = $state<string>('');
+    let iframeUrl = $state<string | null>(null);
+    let _prevUrl: string | null = null;
+    let viewId: string | null = null;
+    let paneElement: HTMLElement | null = null;
+
+    // Debug vars to help diagnose markdown rendering
+    let lastRawMarkdown: string | null = $state(null);
+    let lastRawHtml: string | null = $state(null);
+    let lastSanitizedHtml: string | null = $state(null);
+
+    // --- Markdown safety helpers ---
+    // escape HTML for attributes
+    function escapeHtml(s: string) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function isSafeHref(href: string | undefined) {
+        if (!href) return false;
+        try {
+            // Use URL to parse relative URLs too (base becomes http://example)
+            const u = new URL(href, 'http://example');
+            const p = u.protocol.toLowerCase();
+            if (p === 'http:' || p === 'https:' || p === 'mailto:') return true;
+            // allow data images
+            if (p === 'data:' && /^data:image\//i.test(href)) return true;
+            return false;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function sanitizeDom(template: HTMLTemplateElement) {
+        const walker = document.createTreeWalker(template.content, NodeFilter.SHOW_ELEMENT, null);
+        while (walker.nextNode()) {
+            const el = walker.currentNode as Element;
+            const tag = el.tagName.toLowerCase();
+            // remove script and style elements
+            if (tag === 'script' || tag === 'style') {
+                el.remove();
+                continue;
+            }
+
+            // remove event handler attributes and javascript: protocols
+            for (const attr of Array.from(el.attributes)) {
+                const name = attr.name.toLowerCase();
+                const val = attr.value;
+                if (name.startsWith('on')) {
+                    el.removeAttribute(attr.name);
+                    continue;
+                }
+                if ((name === 'href' || name === 'src') && /^javascript:/i.test(val)) {
+                    el.removeAttribute(attr.name);
+                    continue;
+                }
+            }
+
+            // Post-process anchors: only allow http(s), mailto, and data:image; set target/rel
+            if (tag === 'a') {
+                const href = el.getAttribute('href') ?? '';
+                if (isSafeHref(href)) {
+                    el.setAttribute('target', '_blank');
+                    el.setAttribute('rel', 'noopener noreferrer');
+                } else {
+                    el.setAttribute('href', '#');
+                    el.removeAttribute('target');
+                    el.removeAttribute('rel');
+                }
+            }
+
+            // Post-process images: only allow safe src
+            if (tag === 'img') {
+                const src = el.getAttribute('src') ?? '';
+                if (!isSafeHref(src)) {
+                    el.removeAttribute('src');
+                }
+            }
+        }
+    }
+
+    async function parseAndSanitize(markdownText: string) {
+        // Parse markdown to HTML, then sanitize the generated DOM
+            // Debug / diagnostics: keep raw inputs to help troubleshoot rendering
+            try {
+                lastRawMarkdown = markdownText;
+            } catch (e) { /* ignore */ }
+
+            // Parse markdown to HTML, then sanitize the generated DOM
+            const raw = await marked.parse(markdownText, { gfm: true, breaks: true });
+            lastRawHtml = raw as string;
+            const template = document.createElement('template');
+            template.innerHTML = raw;
+            sanitizeDom(template);
+            const out = template.innerHTML;
+            // store sanitized HTML for debugging
+            lastSanitizedHtml = out;
+            console.debug('parseAndSanitize: raw length=', (raw as string).length, 'sanitized length=', out.length);
+            return out;
+    }
+
+    async function onFileChange(e: Event) {
         const input = e.target as HTMLInputElement;
         const file = input?.files?.[0];
         if (!file) {
             return;
         }
-        console.log("Opening " + file.type);
+        console.log("Opening " + file.type + " (" + (file.name ?? '') + ")");
+
+        // Revoke previous object URL if any
         if (_prevUrl) {
-            URL.revokeObjectURL(_prevUrl);
+            try { URL.revokeObjectURL(_prevUrl); } catch (err) { /* ignore */ }
+            _prevUrl = null;
         }
+
+        // Clear previous previews
+        pdfUrl = null;
+        imgUrl = null;
+        markdownHtml = null;
+
+        // handle PDFs
         if (file.type === 'application/pdf') {
             const url = URL.createObjectURL(file);
             pdfUrl = url;
             _prevUrl = url;
-        } else if (file.type.startsWith('image/')) {
-            imgUrl = URL.createObjectURL(file);
-        } else {
-            pdfUrl = null;
-            _prevUrl = null;
+            return;
+        }
+
+        // handle images
+        if (file.type.startsWith('image/')) {
+            const url = URL.createObjectURL(file);
+            imgUrl = url;
+            _prevUrl = url;
+            return;
+        }
+
+        // handle markdown (by extension or MIME)
+        const name = file.name ?? '';
+        const isMarkdownExt = /\.(md|markdown)$/i.test(name);
+        const isMarkdownType = file.type === 'text/markdown' || (file.type.startsWith('text/') && isMarkdownExt);
+                if (isMarkdownExt || isMarkdownType) {
+            try {
+                const text = await file.text();
+                // parse to HTML via marked and sanitize
+                markdownHtml = await parseAndSanitize(text);
+            } catch (err) {
+                console.warn('Failed to read markdown file', err);
+                markdownHtml = '<pre>Failed to read file</pre>';
+            }
+            return;
+        }
+
+        // fallback: try to read as text and render as markdown
+        try {
+            const text = await file.text();
+            markdownHtml = await parseAndSanitize(text);
+        } catch (err) {
+            console.warn('Unsupported file type and failed to read as text', err);
         }
     }
+
+    function onUrlInput(e: Event) {
+        const input = e.target as HTMLInputElement;
+        urlInput = input?.value ?? '';
+    }
+
+    function onUrlKeydown(e: KeyboardEvent) {
+        if (e.key === 'Enter') {
+            loadUrl();
+        }
+    }
+
+    function loadUrl() {
+        // basic validation via URL constructor; allow http and https only
+        try {
+            const candidate = urlInput.trim();
+            if (!candidate) return;
+            const u = new URL(candidate.includes('://') ? candidate : `https://${candidate}`);
+            if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+                console.warn('Unsupported protocol for iframe:', u.protocol);
+                return;
+            }
+            iframeUrl = u.toString();
+            // create or update a BrowserView in the main process
+            if (!viewId) {
+                viewId = `pane-view-${paneData.uuid}`;
+                // create view (main process will attach to the main window)
+                // initial bounds will be updated immediately by updateView after measuring
+                //window.viewApi.createView(viewId, iframeUrl, { x: 0, y: 0, width: width, height: height }).catch((e: Error) => console.warn(e));
+            } else {
+                //swindow.viewApi.createView(viewId, iframeUrl, { x: 0, y: 0, width: width, height: height }).catch((e: Error) => console.warn(e));
+            }
+            // clear other previews
+            pdfUrl = null;
+            imgUrl = null;
+            markdownHtml = null;
+        } catch (err) {
+            console.warn('Invalid URL:', urlInput, err);
+        }
+    }
+
+    // measure and update view bounds whenever the pane moves or resizes
+    function updateViewBounds() {
+        if (!viewId || !paneElement) return;
+        const rect = paneElement.getBoundingClientRect();
+        // Convert to device pixels if necessary; use rect directly for now
+        window.viewApi.updateView(viewId, { x: Math.round(rect.left), y: Math.round(rect.top), width: Math.round(rect.width), height: Math.round(rect.height) }).catch((e: Error) => console.warn(e));
+    }
+
+    /*onMount(() => {
+        // watch for layout changes
+        const ro = new ResizeObserver(() => updateViewBounds());
+        if (paneElement) ro.observe(paneElement);
+        // also update periodically while dragging
+        const interval = setInterval(() => updateViewBounds(), 250);
+        return () => {
+            ro.disconnect();
+            clearInterval(interval);
+            if (viewId) {
+                window.viewApi.destroyView(viewId).catch((e: Error) => console.warn(e));
+                viewId = null;
+            }
+        };
+    });*/
 
 </script>
 
@@ -302,7 +506,7 @@
     border: {solidBorderStyle};
     border-radius: 25px;
     overflow: hidden;
-    z-index: 10;
+    z-index: 50;
     background: #64748b;
     background-image: none;
 	"
@@ -318,7 +522,7 @@
     {onmousemove}
 >
     <div class="        
-        flex justify-center items-center text-center w-full h-full text-slate-50">
+        flex justify-center items-center text-center w-full h-full text-slate-50" style="min-height: 0;" >
         {#if showSemanticPrompt}
             <div style="
                 position: absolute;
@@ -383,17 +587,42 @@
             <img src="{imgUrl}" alt="" style="
             user-drag: none;
             user-select: none;"/>
+        {:else if markdownHtml}
+            <div class="markdown-preview w-full h-full overflow-auto text-left p-4 bg-white text-black" style="box-sizing: border-box;">
+                {@html markdownHtml}
+                <!-- Debug info to help diagnose rendering issues -->
+                <details style="margin-top:8px; color:#334155; background:#f8fafc; padding:8px; border-radius:6px;">
+                    <summary style="cursor:pointer;">Debug: markdown parse info</summary>
+                    <div style="font-size:12px; margin-top:8px;">
+                        <div>raw markdown length: {lastRawMarkdown ? lastRawMarkdown.length : 0}</div>
+                        <div>raw html length: {lastRawHtml ? lastRawHtml.length : 0}</div>
+                        <div>sanitized html length: {lastSanitizedHtml ? lastSanitizedHtml.length : 0}</div>
+                    </div>
+                </details>
+            </div>
+        {:else if iframeUrl}
+            <!-- Use Electron's <webview> to embed web content in the renderer -->
+            <!-- Wrap the webview in a positioned container with overflow:hidden so it cannot escape the pane bounds -->
+            <div class="webview-container" style="min-width: 100%; min-height: 100%;">
+                <webview title="Loaded webpage preview" src={iframeUrl} style="width: {width}px; height: {height}px;" preload="" ></webview>
+            </div>
         {:else}
             <!-- PDF upload input -->
-            <label for="pdf-input-{paneData.uuid}" class="text-sm block">
-                <svg xmlns="http://www.w3.org/2000/svg" width="{width/2}" height="{width/2}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-file"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /></svg>
-            </label>
-            <input 
-            id="pdf-input-{paneData.uuid}"
-            type="file"
-            accept="*"
-            onchange={onFileChange}
-            class="mt-1 hidden" />
+            <div class="block gap-2">
+                <div class="grow justify-center items-center">
+                    <label for="pdf-input-{paneData.uuid}" class="text-sm block mx-50">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="{width/2}" height="{width/2}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-file"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /></svg>
+                    </label>
+                    <input 
+                    id="pdf-input-{paneData.uuid}"
+                    type="file"
+                    accept="*"
+                    onchange={onFileChange}
+                    class="mt-1 hidden" />
+                </div>
+                <!-- URL loader -->
+                <input type="text" placeholder="https://example.com" class="px-2 py-1 rounded bg-slate-500 text-gray-50" value={urlInput} oninput={onUrlInput} onkeydown={onUrlKeydown} />
+            </div>
         {/if}
     </div>
 </div>

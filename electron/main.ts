@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen } from "electron";
+import { app, BrowserWindow, screen, ipcMain, BrowserView } from "electron";
 import path from "node:path";
 import started from "electron-squirrel-startup";
 
@@ -6,7 +6,6 @@ if (started) {
   app.quit();
 }
 
-import { ipcMain } from 'electron';
 import fs from 'node:fs/promises';
 import { PythonAPIManager } from './pythonAPIManager';
 
@@ -74,6 +73,9 @@ const createWindow = () => {
     frame: false,
     webPreferences: {
       preload: path.join(import.meta.dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      webviewTag: true,
     },
   });
 
@@ -140,3 +142,66 @@ app.on("activate", () => {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
+
+// BrowserView management for embedded pane web content
+const views = new Map<string, BrowserView>();
+
+function getMainWindow(): BrowserWindow | null {
+  const wins = BrowserWindow.getAllWindows();
+  return wins.length ? wins[0] : null;
+}
+
+ipcMain.handle('view:create', async (event, id: string, url: string, bounds: { x: number; y: number; width: number; height: number }) => {
+  try {
+    // destroy existing view with same id
+    if (views.has(id)) {
+      const existing = views.get(id)!;
+      try { existing.webContents.close(); } catch {}
+      views.delete(id);
+    }
+
+    const view = new BrowserView({
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+      }
+    });
+
+    const main = getMainWindow();
+    if (!main) throw new Error('no_main_window');
+
+    main.addBrowserView(view);
+    view.setBounds({ x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height });
+    // allow the view to navigate to the URL
+    view.webContents.loadURL(url).catch((e) => console.warn('view load url failed', e));
+    views.set(id, view);
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err?.message ?? String(err) };
+  }
+});
+
+ipcMain.handle('view:update', async (event, id: string, bounds: { x: number; y: number; width: number; height: number }) => {
+  try {
+    const view = views.get(id);
+    if (!view) throw new Error('view_not_found');
+    view.setBounds({ x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height });
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err?.message ?? String(err) };
+  }
+});
+
+ipcMain.handle('view:destroy', async (event, id: string) => {
+  try {
+    const view = views.get(id);
+    if (!view) return { ok: true };
+    const main = getMainWindow();
+    if (main) main.removeBrowserView(view);
+    try { view.webContents.close(); } catch {}
+    views.delete(id);
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err?.message ?? String(err) };
+  }
+});

@@ -54,8 +54,10 @@
     "vitest": "^3.0.0"
   },
   "dependencies": {
+    "@tabler/icons": "^3.35.0",
     "electron-squirrel-startup": "^1.0.1",
-    "electron-store": "^8.1.0"
+    "electron-store": "^8.1.0",
+    "marked": "^16.4.1"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

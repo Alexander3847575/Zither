@@ -21,3 +21,10 @@ contextBridge.exposeInMainWorld('api', {
   pythonAPIStatus: async () => ipcRenderer.invoke('python-api:status'),
   clusterTabs: async (tabs) => ipcRenderer.invoke('python-api:cluster-tabs', tabs)
 });
+
+// Expose view APIs for embedding BrowserViews managed in the main process
+contextBridge.exposeInMainWorld('viewApi', {
+  createView: async (id, url, bounds) => ipcRenderer.invoke('view:create', id, url, bounds),
+  updateView: async (id, bounds) => ipcRenderer.invoke('view:update', id, bounds),
+  destroyView: async (id) => ipcRenderer.invoke('view:destroy', id),
+});
