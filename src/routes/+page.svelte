@@ -1,10 +1,6 @@
-<script>
-	import { Dock } from '$lib';
+<script lang="ts">
+    import { Dock } from '$lib';
 
-<<<<<<< HEAD
-	let message = $state('Click a dock item!');
-	let position = $state('bottom');
-=======
     // Runtime export of application state enums
     export const AppStates = {
         Default: 'Default',
@@ -296,7 +292,6 @@
         initialOffset = [screen.availWidth / 2 - newX / 2, screen.availHeight / 2 - newY / 2];
         updateGlobalOffset(appState.globalOffset, [0, 0], false);
     }
->>>>>>> a56c91f423fe591092923b4a5e3b2d9588b8e51a
 
 	/**
 	 * Handle dock item clicks
