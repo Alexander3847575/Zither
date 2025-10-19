@@ -1,6 +1,7 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 import type { SvelteSet } from 'svelte/reactivity';
+import type { Tween } from 'svelte/motion';
 
 declare global {
 	interface Window

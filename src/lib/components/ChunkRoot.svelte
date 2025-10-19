@@ -12,24 +12,38 @@
     });
 
     document.addEventListener("keydown", (event) => {
-    const key = event.key; // Get the key pressed
-    if (key === "n") {
-        chunkManager.mountPane(appState.viewportPos, {
-            uuid: crypto.randomUUID(),
-            paneType: "pdf",
-            data: {"src": ""},
-            chunkCoords: appState.viewportPos,
-            paneCoords: [1, 1],
-            paneSize: [5, 3],
-            semanticTags: "",
-            color: [200, 200, 200, 120],
-        });
-    } else if (key === "d") {
-        chunkManager.unmountPane(appState.activePane, appState.viewportPos);
-    }else if (event.ctrlKey && key === "s") {
-    event.preventDefault(); // Prevent default browser behavior
-    console.log("Ctrl + S was pressed!");
-    }
+        // Check if the user is typing in an input field, textarea, or contenteditable element
+        const target = event.target as HTMLElement;
+        const isTyping = target && (
+            target.tagName === 'INPUT' || 
+            target.tagName === 'TEXTAREA' || 
+            target.contentEditable === 'true' ||
+            target.closest('input, textarea, [contenteditable="true"]')
+        );
+        
+        // If user is typing, don't process keyboard shortcuts
+        if (isTyping) {
+            return;
+        }
+        
+        const key = event.key; // Get the key pressed
+        if (key === "n") {
+            chunkManager.mountPane(appState.viewportPos, {
+                uuid: crypto.randomUUID(),
+                paneType: "pdf",
+                data: {"src": ""},
+                chunkCoords: appState.viewportPos,
+                paneCoords: [1, 1],
+                paneSize: [5, 3],
+                semanticTags: "",
+                color: [200, 200, 200, 120],
+            });
+        } else if (key === "d") {
+            chunkManager.unmountPane(appState.activePane, appState.viewportPos);
+        } else if (event.ctrlKey && key === "s") {
+            event.preventDefault(); // Prevent default browser behavior
+            console.log("Ctrl + S was pressed!");
+        }
     });
 </script>
 

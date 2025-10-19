@@ -2,7 +2,7 @@
     import { getContext, onDestroy, onMount } from "svelte";
     import { cubicIn, elasticOut, quartOut } from "svelte/easing";
     import { Tween } from "svelte/motion";
-    import { marked }from 'marked';
+    import { marked } from 'marked';
   import type { ChunkManager } from "$lib/framework/chunkManager";
 
     const PaneState = {
@@ -32,7 +32,14 @@
     let isSelected = $derived(appState.isSelected(paneData.uuid));
 
     // Semantic tags prompt state: shown only once on init when semanticTags is empty
-    let showSemanticPrompt = $state(!paneData.semanticTags || paneData.semanticTags.trim().length === 0);
+    let showSemanticPrompt = $state(false);
+    
+    // Initialize semantic prompt visibility - only run once on mount
+    onMount(() => {
+        if (!paneData.semanticTags || paneData.semanticTags.trim().length === 0) {
+            showSemanticPrompt = true;
+        }
+    });
     let semanticInput = $state('');
 
     let scale = new Tween(1, {
@@ -253,6 +260,9 @@
     }
 
     function handleSemanticKeydown(e: KeyboardEvent) {
+        // Always stop propagation to prevent keyboard shortcuts from interfering
+        e.stopPropagation();
+        
         if (e.key === 'Enter') {
             e.preventDefault();
             confirmSemanticTags();
@@ -546,6 +556,9 @@
                         type="text"
                         bind:value={semanticInput}
                         onkeydown={handleSemanticKeydown}
+                        oninput={(e) => e.stopPropagation()}
+                        onkeyup={(e) => e.stopPropagation()}
+                        onkeypress={(e) => e.stopPropagation()}
                         placeholder="e.g., finance, invoices, 2024"
                         style="
                             width: 100%;
@@ -556,7 +569,6 @@
                             color: white;
                             outline: none;
                         "
-                        autofocus
                     />
                     <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:8px;">
                         <button onclick={() => { showSemanticPrompt = false; }} style="

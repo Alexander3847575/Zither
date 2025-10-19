@@ -25,17 +25,33 @@
 
 	let { visible = $bindable(false), onChunkClick, currentViewportPos } = $props();
 	
-	let allChunks: ChunkData[] = $state([]);
+    let allChunks: ChunkData[] = $state([]);
+    // Cap how far from the current viewport we visualize
+    const MAX_RADIUS = 5; // inclusive Manhattan distance
 	let loading = $state(false);
 	let error: string | null = $state(null);
-	let isHovered = $state(false);
-	let hideTimeout: NodeJS.Timeout | null = $state(null);
+    let isHovered = $state(false);
+    // Do NOT make this reactive; using $state here causes effects to read and write the same state
+    // which can lead to effect_update_depth_exceeded loops. Keep as a plain variable.
+    let hideTimeout: NodeJS.Timeout | null = null;
 
-	// Calculate bounds of explored world (only stored chunks)
-	let bounds = $derived(() => {
-		if (allChunks.length === 0) return { minX: 0, maxX: 0, minY: 0, maxY: 0, width: 1, height: 1 };
-		
-		const coords = allChunks.map(chunk => chunk.coords);
+    // Visible chunks = only those surrounding the current viewport within MAX_RADIUS
+    let visibleChunks = $derived(() => {
+        if (!currentViewportPos || allChunks.length === 0) return [] as ChunkData[];
+        const [vx, vy] = currentViewportPos as [number, number];
+        return allChunks.filter(c => {
+            const [cx, cy] = c.coords;
+            const manhattan = Math.abs(cx - vx) + Math.abs(cy - vy);
+            return manhattan <= MAX_RADIUS;
+        });
+    });
+
+    // Calculate bounds from the filtered set
+    let bounds = $derived(() => {
+        const chunks = visibleChunks();
+        if (chunks.length === 0) return { minX: 0, maxX: 0, minY: 0, maxY: 0, width: 1, height: 1 };
+        
+        const coords = chunks.map(chunk => chunk.coords);
 		const minX = Math.min(...coords.map(c => c[0]));
 		const maxX = Math.max(...coords.map(c => c[0]));
 		const minY = Math.min(...coords.map(c => c[1]));
@@ -99,41 +115,44 @@
 	});
 
 	// Transient behavior - auto-hide after delay unless hovered
-	$effect(() => {
-		if (!visible) return;
-		
-		// Clear any existing timeout
-		if (hideTimeout) {
-			clearTimeout(hideTimeout);
-			hideTimeout = null;
-		}
-		
-		// Set timeout to hide after 3 seconds if not hovered
-		hideTimeout = setTimeout(() => {
-			if (!isHovered) {
-				visible = false;
-			}
-		}, 3000);
-		
-		return () => {
-			if (hideTimeout) {
-				clearTimeout(hideTimeout);
-				hideTimeout = null;
-			}
-		};
-	});
+    $effect(() => {
+        if (!visible) return;
+        
+        // Clear any existing timeout (non-reactive)
+        if (hideTimeout) {
+            clearTimeout(hideTimeout);
+            hideTimeout = null;
+        }
+        
+        // Set timeout to hide after 3 seconds if not hovered
+        hideTimeout = setTimeout(() => {
+            if (!isHovered) {
+                visible = false;
+            }
+        }, 3000);
+        
+        return () => {
+            if (hideTimeout) {
+                clearTimeout(hideTimeout);
+                hideTimeout = null;
+            }
+        };
+    });
 
 	// Reset timeout when hover state changes
-	$effect(() => {
-		if (isHovered && hideTimeout) {
-			clearTimeout(hideTimeout);
-			hideTimeout = null;
-		} else if (!isHovered && visible) {
-			hideTimeout = setTimeout(() => {
-				visible = false;
-			}, 3000);
-		}
-	});
+    $effect(() => {
+        if (isHovered && hideTimeout) {
+            clearTimeout(hideTimeout);
+            hideTimeout = null;
+        } else if (!isHovered && visible) {
+            // if already scheduled, leave it; otherwise schedule
+            if (!hideTimeout) {
+                hideTimeout = setTimeout(() => {
+                    visible = false;
+                }, 3000);
+            }
+        }
+    });
 
 	async function loadAllChunks() {
 		loading = true;
@@ -182,14 +201,14 @@
 						<p>{error}</p>
 						<button onclick={() => loadAllChunks()}>Retry</button>
 					</div>
-				{:else if allChunks.length === 0}
+                {:else if visibleChunks().length === 0}
 					<p>No chunks found</p>
 				{:else}
 					<div 
 						class="world-map-viewport" 
 						style="width: {minimapWidth}px; height: {minimapHeight}px;"
 					>
-						{#each allChunks as chunk (chunk.uuid)}
+                        {#each visibleChunks() as chunk (chunk.uuid)}
 							<div 
 								class="chunk-representation"
 								class:current-chunk={currentViewportPos && chunk.coords[0] === currentViewportPos[0] && chunk.coords[1] === currentViewportPos[1]}

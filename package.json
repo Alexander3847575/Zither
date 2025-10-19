@@ -43,6 +43,7 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/svelte": "^5.2.4",
     "@types/electron-squirrel-startup": "^1.0.2",
+    "@types/marked": "^5.0.2",
     "@types/node": "^22",
     "electron": "^36.2.1",
     "jsdom": "^26.0.0",
