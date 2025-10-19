@@ -183,7 +183,7 @@ export class ChunkManager {
     /**
      * Helper method to persist a chunk's current state to storage
      */
-    private async persistChunkToStorage(coords: [number, number], chunkHolder: ChunkHolder) {
+    public async persistChunkToStorage(coords: [number, number], chunkHolder: ChunkHolder) {
         try {
             const paneDataArray: PaneData[] = Array.from(chunkHolder.paneData.values());
             
