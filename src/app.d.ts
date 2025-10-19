@@ -42,6 +42,15 @@ declare global {
 		semanticTags: string,
 		color: [number, number, number, number],
 	}
+
+	export interface ChunkData {
+		coords: [number, number],      // Chunk coordinates in the grid
+		uuid: string,                  // Unique identifier  
+		panes: PaneData[],            // Panes contained in this chunk
+		dimensions?: [number, number], // Optional: Width/height in pixels
+		isLoaded?: boolean,           // Optional: Loading state
+		lastAccessed?: Date,          // Optional: For caching/cleanup
+	}
 	
 	export const PaneState = {
 		Default: "Default",
