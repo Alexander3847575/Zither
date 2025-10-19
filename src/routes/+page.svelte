@@ -95,11 +95,6 @@
 
     setContext("appstate", appState);    
 
-    // Watch for changes in selectedPanes and log them
-    $effect(() => {
-        console.log('📋 Selected Panes Changed:', Array.from(appState.selectedPanes));
-        console.log('📊 Selection Count:', appState.selectedPanes.size);
-    });
 
     //await chunkManager.testRender(7);
 
@@ -125,6 +120,15 @@
                 break;
         }
         return;
+    }
+
+    // Click-away deselection (only for left-click)
+    if (event.button === 0) {
+        const target = event.target as Element;
+        const clickedPane = target?.closest('[class*="pane-"]');
+        if (!clickedPane && appState.selectedPanes.size > 0) {
+            appState.clearSelection();
+        }
     }
 
     // Single click handler

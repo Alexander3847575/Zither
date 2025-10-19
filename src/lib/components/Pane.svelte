@@ -43,7 +43,6 @@
         
         // Handle shift-click selection
         if (event.shiftKey) {
-            console.log(`🔍 Shift+Click Selection - Pane: ${paneData.uuid}`);
             appState.toggleSelection(paneData.uuid);
             event.stopPropagation();
             return;
