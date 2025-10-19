@@ -1,5 +1,6 @@
 <script lang="ts">
     import { getContext, onMount } from "svelte";
+    import { ChunkManager } from "$lib/framework/chunkManager";
 
     const PaneState = {
 		Default: "Default",
@@ -12,6 +13,7 @@
     let paneData: PaneData = $state(data);
     let paneState: PaneStateKey = $state(PaneState.Default);
     let appState: AppState = getContext("appstate");
+    let chunkManager: ChunkManager = getContext("chunkManager");
 
 
     let width = $derived(paneData.paneSize[0] * appState.unitToPixelRatio.current);
@@ -23,6 +25,7 @@
     let shouldCancelPointerEvents = $derived((appState.state == "MovingPane") ? "pointer-events-none" : "");
     let resizing = $state(0);
     let mouseDelta = [0, 0];
+    let persistenceTimeout: NodeJS.Timeout | null = null;
 
     function onmouseenter() {
         active = true;
@@ -66,14 +69,43 @@
         event.stopPropagation();
     }
 
+    function triggerPersistence() {
+        // Clear any existing timeout
+        if (persistenceTimeout) {
+            clearTimeout(persistenceTimeout);
+        }
+        
+        // Debounce persistence to avoid too many storage writes
+        persistenceTimeout = setTimeout(() => {
+            try {
+                // Update the pane data in the chunk manager's tracking
+                const chunkHolder = chunkManager.loadedChunks.get(paneData.chunkCoords[0])?.get(paneData.chunkCoords[1]);
+                if (chunkHolder) {
+                    chunkHolder.paneData.set(paneData.uuid, paneData);
+                    // Trigger persistence to storage
+                    chunkManager.persistChunkToStorage(paneData.chunkCoords, chunkHolder);
+                }
+            } catch (error) {
+                console.warn('Failed to persist pane changes:', error);
+            }
+        }, 100); // 100ms debounce
+    }
+
     function onmouseup() {
         dragging = false;
         resizing = 0;
+        
+        // Trigger persistence when dragging/resizing ends
+        triggerPersistence();
     }
     function onmousemove(event: MouseEvent) {
         if (dragging) {
             xOffset += event.movementX;
             yOffset += event.movementY;
+            
+            // Update the underlying paneData coordinates
+            paneData.paneCoords[0] = xOffset / appState.unitToPixelRatio.current;
+            paneData.paneCoords[1] = yOffset / appState.unitToPixelRatio.current;
             return;
         }
 
@@ -81,18 +113,24 @@
             case 1:
                 yOffset += event.movementY;
                 height += event.movementY;
+                paneData.paneCoords[1] = yOffset / appState.unitToPixelRatio.current;
+                paneData.paneSize[1] = height / appState.unitToPixelRatio.current;
                 break;
             case 2: 
                 //xOffset += event.movementX;
                 width += event.movementX;
+                paneData.paneSize[0] = width / appState.unitToPixelRatio.current;
                 break;
             case 3: 
                 //yOffset += event.movementY;
                 height += event.movementY;
+                paneData.paneSize[1] = height / appState.unitToPixelRatio.current;
                 break;
             case 4: 
                 xOffset += event.movementX;
                 width -= event.movementX;
+                paneData.paneCoords[0] = xOffset / appState.unitToPixelRatio.current;
+                paneData.paneSize[0] = width / appState.unitToPixelRatio.current;
                 break;
         }
     }
