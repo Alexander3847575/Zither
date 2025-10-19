@@ -9,6 +9,7 @@
     // place files you want to import through the `$lib` alias in this folder.
     let appState: AppState = getContext('appstate');
     const chunkManager: ChunkManager = new ChunkManager(mountPoint!);
+    setContext('chunkManager', chunkManager);
     console.log("Initialized chunk manager.");
 
     $effect(() => {
