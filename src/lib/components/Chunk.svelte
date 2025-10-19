@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getContext, onDestroy } from 'svelte';
+	import Pane from "$lib/components/Pane.svelte";
 
 	let appState: AppState = getContext('appstate');
 	let  { coords, uuid } = $props();
@@ -9,6 +10,17 @@
 	let left = $state(0);
 	let top = $state(0);
 
+	// panes owned by this Chunk. Export API so programmatic mounters can add panes
+	let panes: PaneData[] = $state([]);
+
+	export function addPane(data: PaneData) {
+		panes = [...panes, data];
+	}
+
+	export function removePane(uuidToRemove: string) {
+		panes = panes.filter(p => p.uuid !== uuidToRemove);
+	}
+
 	function fitMaxAmountEvenly(totalSize: number, minimumSize: number): number {
 		let canFit = totalSize / minimumSize;
 		let maxAmount = Math.floor(canFit);
@@ -16,6 +28,9 @@
 		return evenAmount;
 	}
 
+    function onmouseenter(event: Event) {
+        appState.activeChunk = uuid;
+    };
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -25,7 +40,7 @@
 	top: {top + yOffset}px;
 	width: {appState.chunkDimensions[0].current}px;
 	height: {appState.chunkDimensions[1].current}px;
-	background-size: 6vmin 6vmin;
+	background-size: 5.1vmin 5.2vmin;
 	background-image: radial-gradient(rgba(0, 0, 0, 0.1) 9%, transparent 9%);
 	background-position: 25% 25%;
 	"
@@ -34,10 +49,14 @@
 	absolute 
 	bg-gray-50 flex justify-center items-center text-center w-full h-full"
 	role="application"
+    {onmouseenter}
 >
 	<div class="block">
-		<p>
+		<!--<p>
 			{coords}
-		</p>
+		</p>-->
+		{#each panes as p (p.uuid)}
+			<Pane data={p} />
+		{/each}
 	</div>
 </div>

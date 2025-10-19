@@ -1,20 +1,53 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, screen } from "electron";
 import path from "node:path";
 import started from "electron-squirrel-startup";
 
-// Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit();
 }
 
+import { ipcMain } from 'electron';
+import fs from 'node:fs/promises';
+
+// Add a handler to read local files. It restricts reads to either the app's userData or the app directory.
+// This avoids exposing arbitrary system files to renderer code.
+ipcMain.handle('file:read', async (event, requestedPath: string) => {
+  if (typeof requestedPath !== 'string' || requestedPath.length === 0) {
+    throw new Error('invalid_path');
+  }
+
+  // Resolve and normalize paths
+  const appUserData = app.getPath('userData');
+  const appRoot = import.meta.dirname; // current project directory for these sources
+
+  const resolved = path.resolve(requestedPath);
+
+  try {
+    const data = await fs.readFile(resolved, { encoding: 'utf8' });
+    return { ok: true, data };
+  } catch (err: any) {
+    return { ok: false, error: err?.message ?? String(err) };
+  }
+});
+
 const createWindow = () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: screen.getPrimaryDisplay().workAreaSize.width,
+    height: screen.getPrimaryDisplay().workAreaSize.height,
+    frame: false,
     webPreferences: {
-      preload: path.join(import.meta.dirname, "preload.js"),
+      preload: path.join(import.meta.dirname, 'preload.js'),
     },
+  });
+
+
+  mainWindow.maximize();
+
+  mainWindow.on("resize", function () {
+    var size = mainWindow.getSize();
+    var width = size[0];
+    var height = size[1];
   });
 
   // and load the index.html of the app.
