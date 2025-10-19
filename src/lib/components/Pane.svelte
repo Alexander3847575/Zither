@@ -26,6 +26,7 @@
     let resizing = $state(0);
     let mouseDelta = [0, 0];
     let persistenceTimeout: NodeJS.Timeout | null = null;
+    let isSelected = $derived(appState.isSelected(paneData.uuid));
 
     function onmouseenter() {
         active = true;
@@ -39,6 +40,15 @@
         if (!active) {
             return;
         }
+        
+        // Handle shift-click selection
+        if (event.shiftKey) {
+            console.log(`🔍 Shift+Click Selection - Pane: ${paneData.uuid}`);
+            appState.toggleSelection(paneData.uuid);
+            event.stopPropagation();
+            return;
+        }
+        
         let resizeMargin = 10;
         if (event.x > xOffset + width - resizeMargin) {
             console.log("right")
@@ -135,6 +145,7 @@
         }
     }
 
+
     // PDF preview state (use $state so Svelte reactivity updates the template)
 	let pdfUrl = $state<string | null>(null);
 	let _prevUrl: string | null = null;
@@ -175,7 +186,7 @@
     pane-{paneData.uuid}
     absolute
     bg-slate-500
-
+    {isSelected ? 'ring-4 ring-blue-500 ring-opacity-75' : ''}
     "
     {onmouseenter}
     {onmouseleave}

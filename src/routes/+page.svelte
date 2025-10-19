@@ -4,6 +4,7 @@
     import { setContext } from "svelte";
     import { cubicOut } from "svelte/easing";
     import { Tween } from "svelte/motion";
+    import { SvelteSet } from "svelte/reactivity";
 
     // Runtime export of application state enums
     export const AppStates = {
@@ -57,8 +58,48 @@
         effectiveDelta: effectiveDelta,
         directionData: directionData,
         activeChunk: "",
+        selectedPanes: new SvelteSet<string>(),
+        selectionMode: false as boolean,
+        // Selection methods
+        selectPane: function(uuid: string) {
+            this.selectedPanes.add(uuid);
+            this.selectionMode = true;
+        },
+        deselectPane: function(uuid: string) {
+            this.selectedPanes.delete(uuid);
+            if (this.selectedPanes.size === 0) {
+                this.selectionMode = false;
+            }
+        },
+        toggleSelection: function(uuid: string) {
+            if (this.selectedPanes.has(uuid)) {
+                this.deselectPane(uuid);
+            } else {
+                this.selectPane(uuid);
+            }
+        },
+        clearSelection: function() {
+            this.selectedPanes.clear();
+            this.selectionMode = false;
+        },
+        isSelected: function(uuid: string): boolean {
+            return this.selectedPanes.has(uuid);
+        },
+        getSelectedPanes: function(): string[] {
+            return Array.from(this.selectedPanes);
+        },
+        getSelectionCount: function(): number {
+            return this.selectedPanes.size;
+        }
     });
+
     setContext("appstate", appState);    
+
+    // Watch for changes in selectedPanes and log them
+    $effect(() => {
+        console.log('📋 Selected Panes Changed:', Array.from(appState.selectedPanes));
+        console.log('📊 Selection Count:', appState.selectedPanes.size);
+    });
 
     //await chunkManager.testRender(7);
 
