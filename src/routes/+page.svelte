@@ -351,7 +351,7 @@
 </script>
 
 <ChunkRoot></ChunkRoot>
-<Dock></Dock>
+<Dock bind:doubleClickEligible={doubleClickEligible}></Dock>
 {#if appState.state == "InteractMenu"}
     <RadialMenu></RadialMenu>
 {/if}
