@@ -50,5 +50,16 @@ def run_clustering_flow(api_input: List[Dict[str, Any]]) -> List[Dict[str, Any]]
 
     # Export results
     clusters_json = clusterer.export_clusters_to_json(clusters, storage)
+
+    # Debug output: print cluster labels and their tab names
+    try:
+        print("=== Cluster Debug Output ===")
+        for c in clusters_json:
+            tab_names = ", ".join([t.get('name', '') for t in c.get('tabs', [])])
+            print(f"{c.get('id')} | {c.get('name')} -> [ {tab_names} ]")
+        print("=== End Cluster Debug Output ===")
+    except Exception as _:
+        # Non-fatal; debugging only
+        pass
     
     return clusters_json

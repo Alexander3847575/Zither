@@ -59,6 +59,15 @@ async def cluster_tabs(tabs: List[TabInput]):
         
         # Run the clustering flow
         clustered_data = run_clustering_flow(tabs_data)
+
+        # Debug log: echo back clusters and labels
+        try:
+            print("[API] /cluster result:")
+            for c in clustered_data:
+                names = ", ".join([t.get('name', '') for t in c.get('tabs', [])])
+                print(f"  {c.get('id')} | {c.get('name')} -> [ {names} ]")
+        except Exception:
+            pass
         
         return clustered_data
     except Exception as e:

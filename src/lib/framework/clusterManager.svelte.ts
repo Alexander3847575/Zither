@@ -58,7 +58,8 @@ class ClusterManager {
             return null;
         }
 
-        const tabsPayload = panes.map(p => ({ id: p.uuid, name: p.paneType }));
+        // Prefer semanticTags as the label for embedding; fallback to paneType
+        const tabsPayload = panes.map(p => ({ id: p.uuid, name: (p.semanticTags && p.semanticTags.trim().length > 0) ? p.semanticTags : p.paneType }));
 
         // Prefer Electron bridge if present
         try {

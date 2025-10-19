@@ -1,16 +1,11 @@
 <script lang="ts">
-    import { getContext, setContext } from "svelte";
-    import { ChunkManager } from "$lib/framework/chunkManager";
+    import { getContext } from "svelte";
+    import type { ChunkManager } from "$lib/framework/chunkManager";
 
-    const body = document.body;
-    const mountPoint = (body.querySelector('#main-mount') instanceof HTMLElement) ? (body.getElementsByClassName("main-mount").item(0) as HTMLElement) : body;
-    // (body.getElementsByClassName("main-mount").item(0) instanceof HTMLElement) ? (body.getElementsByClassName("main-mount").item(0) as HTMLElement) : body;
-
-    // place files you want to import through the `$lib` alias in this folder.
+    // Get instances from parent context
     let appState: AppState = getContext('appstate');
-    const chunkManager: ChunkManager = new ChunkManager(mountPoint!);
-    setContext('chunkManager', chunkManager);
-    console.log("Initialized chunk manager.");
+    const chunkManager: ChunkManager = getContext('chunkManager');
+    console.log("Retrieved chunk manager from context.");
 
     $effect(() => {
         chunkManager.renderChunks(appState.viewportPos, 1);
