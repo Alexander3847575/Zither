@@ -569,7 +569,9 @@ Usage:
 	}
 
 	.dropdown-item__icon--img {
-		display: inline-block;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
 		filter: invert(1); /* Make SVG icons white to match the theme */
 	}
 
@@ -590,7 +592,9 @@ Usage:
 	}
 
 	.dock-item__icon--img {
-		display: inline-block;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
 		filter: invert(1); /* Make SVG icons white to match the theme */
 	}
 
