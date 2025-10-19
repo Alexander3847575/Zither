@@ -367,9 +367,9 @@ Usage:
 	/* CSS Custom Properties for consistent sizing */
 	.dock {
 		--dock-icon-size: 1rem;
-		--dock-padding-block: 0.5rem;
-		--dock-padding-inline: 0.75rem;
-		--dock-border-radius: 0.5rem;
+		--dock-padding-block: 0.3rem;
+		--dock-padding-inline: 0.3rem;
+		--dock-border-radius: 10rem;
 		--dock-gap: 0.375rem;
 		--dropdown-min-width: 11.25rem; /* 180px */
 		--dropdown-max-width: 18.75rem; /* 300px */
@@ -610,14 +610,14 @@ Usage:
 		background: rgba(255, 255, 255, 0.15);
 		backdrop-filter: blur(15px);
 		border: 1px solid rgba(255, 255, 255, 0.3);
-		border-radius: 8px;
-		padding: 0.75rem;
+		border-radius: 30px;
+		padding: 0.25rem;
 		z-index: 1000;
 		opacity: 0;
 		animation: dropdownFadeIn 0.2s ease forwards;
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: 0.25rem;
 	}
 
 	/* Slider container positioning based on dock position */
