@@ -2,7 +2,7 @@
     import { getContext, onDestroy, onMount } from "svelte";
     import { cubicIn, elasticOut, quartOut } from "svelte/easing";
     import { Tween } from "svelte/motion";
-    import { marked }from 'marked';
+    import { marked } from 'marked';
   import type { ChunkManager } from "$lib/framework/chunkManager";
 
     const PaneState = {
@@ -31,6 +31,17 @@
     let persistenceTimeout: NodeJS.Timeout | null = null;
     let isSelected = $derived(appState.isSelected(paneData.uuid));
 
+    // Semantic tags prompt state: shown only once on init when semanticTags is empty
+    let showSemanticPrompt = $state(false);
+    
+    // Initialize semantic prompt visibility - only run once on mount
+    onMount(() => {
+        if (!paneData.semanticTags || paneData.semanticTags.trim().length === 0) {
+            showSemanticPrompt = true;
+        }
+    });
+    let semanticInput = $state('');
+
     let scale = new Tween(1, {
         easing: quartOut,
         duration: 200,
@@ -43,6 +54,78 @@
         const toHex = (value: number) => value.toString(16).padStart(2, '0');
         return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
     }
+
+    // Create solid border color with no gradient
+    let solidBorderStyle = $derived(`5px solid ${borderColor}`);
+
+    // Debug logging for color changes
+    $effect(() => {
+        console.log(`🎨 Pane ${paneData.uuid} color changed:`, {
+            color: paneData.color,
+            borderColor: borderColor,
+            isSelected: isSelected
+        });
+    });
+
+    // Keep pane UI in sync with storage/cluster updates
+    onMount(() => {
+        function handleClusterChanged(e: Event) {
+            const detail = (e as CustomEvent).detail as any;
+            const paneIds: string[] | undefined = detail?.cluster?.paneIds;
+            if (paneIds && paneIds.includes(paneData.uuid)) {
+                // If this pane is affected, refresh its color from authoritative source if available
+                // For now, trust that storage already has the updated color and just trigger a reactive update
+                paneData = { ...paneData } as PaneData;
+            }
+        }
+
+        function handleStorageChanged(e: Event) {
+            const detail = (e as CustomEvent).detail as any;
+            const chunk = detail?.chunkData as { panes?: PaneData[] } | undefined;
+            if (chunk?.panes) {
+                const updated = chunk.panes.find(p => p.uuid === paneData.uuid);
+                if (updated) {
+                    let hasChanges = false;
+                    
+                    // Check for color changes
+                    if (updated.color && updated.color !== paneData.color) {
+                        paneData.color = updated.color as [number, number, number, number];
+                        hasChanges = true;
+                    }
+                    
+                    // Check for position changes
+                    if (updated.paneCoords && 
+                        (updated.paneCoords[0] !== paneData.paneCoords[0] || 
+                         updated.paneCoords[1] !== paneData.paneCoords[1])) {
+                        console.log(`🔧 Pane ${paneData.uuid}: position updated [${paneData.paneCoords[0]},${paneData.paneCoords[1]}] → [${updated.paneCoords[0]},${updated.paneCoords[1]}]`);
+                        paneData.paneCoords = updated.paneCoords;
+                        hasChanges = true;
+                    }
+                    
+                    // Check for size changes
+                    if (updated.paneSize && 
+                        (updated.paneSize[0] !== paneData.paneSize[0] || 
+                         updated.paneSize[1] !== paneData.paneSize[1])) {
+                        paneData.paneSize = updated.paneSize;
+                        hasChanges = true;
+                    }
+                    
+                    // Reassign to ensure reactivity if any changes occurred
+                    if (hasChanges) {
+                        paneData = { ...paneData } as PaneData;
+                    }
+                }
+            }
+        }
+
+        window.addEventListener('cluster-changed', handleClusterChanged as EventListener);
+        window.addEventListener('storage-changed', handleStorageChanged as EventListener);
+
+        return () => {
+            window.removeEventListener('cluster-changed', handleClusterChanged as EventListener);
+            window.removeEventListener('storage-changed', handleStorageChanged as EventListener);
+        };
+    });
 
 
     function onmouseenter() {
@@ -164,6 +247,28 @@
                 paneData.paneCoords[0] = xOffset / appState.unitToPixelRatio.current;
                 paneData.paneSize[0] = width / appState.unitToPixelRatio.current;
                 break;
+        }
+    }
+
+    function confirmSemanticTags() {
+        const value = semanticInput.trim();
+        if (value.length > 0) {
+            paneData.semanticTags = value;
+        }
+        showSemanticPrompt = false;
+        triggerPersistence();
+    }
+
+    function handleSemanticKeydown(e: KeyboardEvent) {
+        // Always stop propagation to prevent keyboard shortcuts from interfering
+        e.stopPropagation();
+        
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            confirmSemanticTags();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            showSemanticPrompt = false;
         }
     }
 
@@ -408,15 +513,16 @@
     box-sizing: border-box;
     -moz-box-sizing: border-box;
     -webkit-box-sizing: border-box;
-    border: 5px solid {borderColor};
+    border: {solidBorderStyle};
     border-radius: 25px;
     overflow: hidden;
     z-index: 50;
+    background: #64748b;
+    background-image: none;
 	"
     class="
     pane-{paneData.uuid}
     absolute
-    bg-slate-500
     {isSelected ? 'ring-4 ring-blue-500 ring-opacity-75' : ''}
     "
     {onmouseenter}
@@ -427,6 +533,56 @@
 >
     <div class="        
         flex justify-center items-center text-center w-full h-full text-slate-50" style="min-height: 0;" >
+        {#if showSemanticPrompt}
+            <div style="
+                position: absolute;
+                inset: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(0,0,0,0.35);
+                z-index: 100;
+            ">
+                <div style="
+                    background: rgba(17,24,39,0.95);
+                    color: white;
+                    border-radius: 0.5rem;
+                    padding: 0.75rem;
+                    min-width: 220px;
+                    box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+                ">
+                    <div class="text-xs mb-2" style="opacity:0.85">Enter semantic tags for this pane</div>
+                    <input
+                        type="text"
+                        bind:value={semanticInput}
+                        onkeydown={handleSemanticKeydown}
+                        oninput={(e) => e.stopPropagation()}
+                        onkeyup={(e) => e.stopPropagation()}
+                        onkeypress={(e) => e.stopPropagation()}
+                        placeholder="e.g., finance, invoices, 2024"
+                        style="
+                            width: 100%;
+                            padding: 6px 8px;
+                            border-radius: 6px;
+                            border: 1px solid rgba(255,255,255,0.2);
+                            background: rgba(31,41,55,0.9);
+                            color: white;
+                            outline: none;
+                        "
+                    />
+                    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:8px;">
+                        <button onclick={() => { showSemanticPrompt = false; }} style="
+                            padding: 4px 8px; background: transparent; color: #cbd5e1; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; cursor: pointer;">
+                            Skip
+                        </button>
+                        <button onclick={confirmSemanticTags} style="
+                            padding: 4px 8px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                            Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+        {/if}
         <!-- PDF preview (renders when a PDF is selected) -->
         {#if pdfUrl}
             <div style="

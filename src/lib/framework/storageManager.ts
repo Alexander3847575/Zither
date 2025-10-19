@@ -35,6 +35,11 @@ class BrowserStorageManager {
             existingData[key] = chunkData;
             localStorage.setItem(this.storageKey, JSON.stringify(existingData));
             console.log(`Saved chunk at ${key} to browser storage:`, chunkData);
+            
+            // Emit custom event for storage change
+            window.dispatchEvent(new CustomEvent('storage-changed', { 
+                detail: { action: 'save', chunkData } 
+            }));
         } catch (error) {
             console.warn('Failed to save chunk to browser storage:', error);
         }
@@ -82,6 +87,12 @@ class BrowserStorageManager {
                 delete allData[key];
                 localStorage.setItem(this.storageKey, JSON.stringify(allData));
                 console.log(`Deleted chunk at ${key} from browser storage`);
+                
+                // Emit custom event for storage change
+                window.dispatchEvent(new CustomEvent('storage-changed', { 
+                    detail: { action: 'delete', coords } 
+                }));
+                
                 return true;
             }
             return false;

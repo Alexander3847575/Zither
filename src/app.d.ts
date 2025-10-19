@@ -1,6 +1,7 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 import type { SvelteSet } from 'svelte/reactivity';
+import type { Tween } from 'svelte/motion';
 
 declare global {
 	interface Window
@@ -67,6 +68,15 @@ declare global {
 		dimensions?: [number, number], // Optional: Width/height in pixels
 		isLoaded?: boolean,           // Optional: Loading state
 		lastAccessed?: Date,          // Optional: For caching/cleanup
+	}
+
+	export interface Cluster {
+		id: string,                    // Unique identifier for the cluster
+		label: string,                 // Human-readable label for the cluster
+		paneIds: string[],            // Array of pane UUIDs belonging to this cluster
+		color?: [number, number, number, number], // Optional: RGBA color for visual representation
+		createdAt?: Date,             // Optional: When the cluster was created
+		updatedAt?: Date,             // Optional: When the cluster was last updated
 	}
 	
 	export const PaneState = {

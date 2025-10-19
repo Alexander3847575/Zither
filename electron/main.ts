@@ -7,6 +7,10 @@ if (started) {
 }
 
 import fs from 'node:fs/promises';
+import { PythonAPIManager } from './pythonAPIManager';
+
+// Initialize Python API Manager
+const pythonAPI = new PythonAPIManager();
 
 // Add a handler to read local files. It restricts reads to either the app's userData or the app directory.
 // This avoids exposing arbitrary system files to renderer code.
@@ -27,6 +31,38 @@ ipcMain.handle('file:read', async (event, requestedPath: string) => {
   } catch (err: any) {
     return { ok: false, error: err?.message ?? String(err) };
   }
+});
+
+// Add Python API handlers
+ipcMain.handle('python-api:start', async () => {
+  try {
+    const success = await pythonAPI.startAPI();
+    return { success, status: pythonAPI.getStatus() };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('python-api:stop', async () => {
+  try {
+    await pythonAPI.stopAPI();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('python-api:cluster-tabs', async (event, tabs) => {
+  try {
+    const result = await pythonAPI.clusterTabs(tabs);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('python-api:status', async () => {
+  return pythonAPI.getStatus();
 });
 
 const createWindow = () => {
@@ -71,12 +107,26 @@ const createWindow = () => {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.on("ready", createWindow);
+app.on("ready", async () => {
+  createWindow();
+  
+  // Try to start Python API automatically
+  try {
+    await pythonAPI.startAPI();
+    // Success message is already logged by pythonAPI.startAPI()
+  } catch (error) {
+    console.log('Python API failed to start automatically:', error.message);
+    // Don't fail the app startup, just log the error
+  }
+});
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
-app.on("window-all-closed", () => {
+app.on("window-all-closed", async () => {
+  // Stop Python API when app closes
+  await pythonAPI.stopAPI();
+  
   if (process.platform !== "darwin") {
     app.quit();
   }

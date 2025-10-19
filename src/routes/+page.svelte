@@ -1,11 +1,16 @@
 <script lang="ts">
     import ChunkRoot from "$lib/components/ChunkRoot.svelte";
     import Dock from "$lib/components/Dock.svelte";
-  import RadialMenu from "$lib/components/RadialMenu.svelte";
-    import { setContext } from "svelte";
+    import RadialMenu from "$lib/components/RadialMenu.svelte";
+    import WorldMap from "$lib/components/WorldMap.svelte";
+    import ContextMenu from "$lib/components/ContextMenu.svelte";
+    import { clusterManager } from "$lib/framework/clusterManager.svelte.js";
+    import { setContext, getContext, onMount } from "svelte";
     import { cubicOut } from "svelte/easing";
     import { Tween } from "svelte/motion";
     import { SvelteSet } from "svelte/reactivity";
+    import { ChunkManager } from "$lib/framework/chunkManager";
+    import { calculatePanePositions } from "$lib/framework/paneLayout";
 
     // Runtime export of application state enums
     export const AppStates = {
@@ -100,17 +105,29 @@
 
     setContext("appstate", appState);    
 
+    // Create chunkManager in parent and pass it down via context
+    // This way both parent and child can access the same instance
+    const body = document.body;
+    const mountPoint = (body.querySelector('#main-mount') instanceof HTMLElement) ? (body.getElementsByClassName("main-mount").item(0) as HTMLElement) : body;
+    const chunkManager: ChunkManager = new ChunkManager(mountPoint!);
+    setContext("chunkManager", chunkManager);
 
     //await chunkManager.testRender(7);
 
     // Listeners
     let clickTimer: NodeJS.Timeout;
     const doubleClickInterval = 100;
-    let doubleClickEligible = false;
+    let doubleClickEligible = $state(false);
+    let worldMapVisible = $state(false);
+    
+    // Context menu state
+    let contextMenuVisible = $state(false);
+    let contextMenuX = $state(0);
+    let contextMenuY = $state(0);
 
-    let body = document.body;
+    let documentBody = document.body;
 
-    body?.addEventListener("mousedown", (event) => {
+    documentBody?.addEventListener("mousedown", (event) => {
 
     // Double click handler
     if (doubleClickEligible) {
@@ -131,7 +148,16 @@
     if (event.button === 0) {
         const target = event.target as Element;
         const clickedPane = target?.closest('[class*="pane-"]');
-        if (!clickedPane && appState.selectedPanes.size > 0) {
+        const clickedContextMenu = target?.closest('.context-menu');
+        
+        console.log('🖱️ Click-away check:', {
+            clickedPane: !!clickedPane,
+            clickedContextMenu: !!clickedContextMenu,
+            selectionCount: appState.selectedPanes.size
+        });
+        
+        if (!clickedPane && !clickedContextMenu && appState.selectedPanes.size > 0) {
+            console.log('❌ Clearing selection due to click-away');
             appState.clearSelection();
         }
     }
@@ -156,7 +182,7 @@
 
     });
 
-    body?.addEventListener("mouseup", (event) => {
+    documentBody?.addEventListener("mouseup", (event) => {
         //console.log("Mouse up detected!");
         if (!doubleClickEligible) {
 
@@ -175,13 +201,13 @@
 
     });
 
-    body.addEventListener("mouseleave", event => {
+    documentBody.addEventListener("mouseleave", event => {
         doubleClickEligible = false;
         snapViewportValue();
         appState.state = AppStates.Default;
     });
 
-    body?.addEventListener("mousemove", (event) => {
+    documentBody?.addEventListener("mousemove", (event) => {
         appState.mousePos[0] = event.clientX;
         appState.mousePos[1] = event.clientY;
         if ((appState.state == AppStates.Default) || (appState.state == AppStates.InteractPane))
@@ -193,7 +219,7 @@
             updateGlobalOffset(appState.globalOffset, appState.effectiveDelta);
         }
     });
-    body?.addEventListener("resize", event => {
+    documentBody?.addEventListener("resize", event => {
         console.log("resize");
     });
 
@@ -349,10 +375,201 @@
         updateGlobalOffset(appState.globalOffset, [0, 0], false);
     }
 
+    async function handleDockItemClick(itemId: string, label: string): Promise<void> {
+        console.log(`Dock item clicked: ${itemId} (${label})`);
+        
+        switch (itemId) {
+            case 'world-map':
+                worldMapVisible = !worldMapVisible;
+                break;
+            case 'auto-arrange':
+                console.log('Auto-arrange: requesting clusters from backend...');
+                try {
+                    const clusters = await clusterManager.autoClusterFromBackend(15000);
+                    if (clusters && clusters.length > 0) {
+                        console.log(`Auto-arrange: received ${clusters.length} clusters; laying out visible panes...`);
+                        await autoArrangeVisiblePanes();
+                    } else {
+                        console.log('Auto-arrange: no clusters produced; skipping layout');
+                    }
+                } catch (e) {
+                    console.error('Auto-arrange failed:', e);
+                }
+                break;
+            case 'new-browser':
+                // Future: handle new browser pane
+                console.log('New browser pane not yet implemented');
+                break;
+            case 'new-file':
+                // Future: handle new file pane
+                console.log('New file pane not yet implemented');
+                break;
+            case 'theme':
+                // Future: handle theme change
+                console.log('Theme change not yet implemented');
+                break;
+            default:
+                console.warn('Unknown dock item:', itemId);
+        }
+    }
+
+    function handleWorldMapChunkClick(coords: [number, number]): void {
+        console.log('Navigating to chunk:', coords);
+        // Update the viewport position to center on the clicked chunk
+        appState.viewportPos = coords;
+        // Trigger smooth animation by updating global offset
+        updateGlobalOffset(appState.globalOffset, [0, 0], false);
+    }
+
+    async function autoArrangeVisiblePanes() {
+        console.log('🔧 autoArrangeVisiblePanes: Starting layout...');
+        
+        // Use the chunkManager instance we created in this component
+        const [originX, originY] = appState.viewportPos;
+        const renderDistance = 1; // align with ChunkRoot render distance
+
+        // Collect loaded chunks within render distance
+        const visibleCoords: Array<[number, number]> = [];
+        for (let dx = -renderDistance; dx <= renderDistance; dx++) {
+            for (let dy = -renderDistance; dy <= renderDistance; dy++) {
+                visibleCoords.push([originX + dx, originY + dy]);
+            }
+        }
+
+        let totalPanesArranged = 0;
+        for (const [cx, cy] of visibleCoords) {
+            const holder = chunkManager.loadedChunks.get(cx)?.get(cy);
+            if (!holder) continue;
+
+            // Build inputs for paneLayout
+            const paneDataMap = holder.paneData; // Map<string, PaneData>
+            if (paneDataMap.size === 0) continue;
+
+            const paneUuids = Array.from(paneDataMap.keys());
+            const ratio = appState.unitToPixelRatio.current;
+            
+            // Convert chunk dimensions from pixels to units for paneLayout
+            const chunkDimsUnits: [number, number] = [
+                appState.chunkDimensions[0].current / ratio,
+                appState.chunkDimensions[1].current / ratio
+            ];
+            
+            console.log(`🔧 Chunk [${cx},${cy}]: ${paneUuids.length} panes, ${chunkDimsUnits[0].toFixed(2)}x${chunkDimsUnits[1].toFixed(2)} units, unitToPixelRatio: ${ratio}`);
+            
+            // Call paneLayout with everything in units
+            const { positions } = calculatePanePositions(
+                paneUuids,
+                chunkDimsUnits,
+                paneDataMap,
+                {
+                    minPaneSize: [2, 1.6], // Reasonable unit-based minimum size
+                    padding: 1,            // 1 unit of space between panes (per commit message)
+                    margin: 1              // 1 unit margin from chunk edges
+                }
+            );
+
+            // Apply layout results directly as units (no conversion needed)
+            for (const pos of positions) {
+                const data = paneDataMap.get(pos.uuid);
+                if (!data) continue;
+                
+                const oldCoords = [...data.paneCoords];
+                const oldSize = [...data.paneSize];
+                
+                console.log(`🔧 Pane ${pos.uuid}: [${oldCoords[0].toFixed(2)},${oldCoords[1].toFixed(2)}] → [${pos.position[0].toFixed(2)},${pos.position[1].toFixed(2)}] units`);
+                
+                // Store positions and sizes directly as units
+                data.paneCoords = pos.position;
+                data.paneSize = pos.size;
+                paneDataMap.set(pos.uuid, data);
+                
+                totalPanesArranged++;
+            }
+
+            await chunkManager.persistChunkToStorage([cx, cy], holder);
+        }
+        
+        console.log(`🔧 autoArrangeVisiblePanes: Arranged ${totalPanesArranged} panes`);
+    }
+
+    // Context menu handlers
+    function handleRightClick(event: MouseEvent) {
+        const selectionCount = appState.getSelectionCount();
+        console.log('🖱️ Right-click detected:', { 
+            selectionCount, 
+            hasSelection: selectionCount > 0,
+            clientX: event.clientX,
+            clientY: event.clientY
+        });
+        
+        if (selectionCount > 0) {
+            event.preventDefault();
+            contextMenuX = event.clientX;
+            contextMenuY = event.clientY;
+            contextMenuVisible = true;
+            console.log('📋 Context menu opened at:', { x: contextMenuX, y: contextMenuY });
+        }
+    }
+    
+    function handleClusterConfirm(name: string) {
+        console.log('🎯 Context menu confirm clicked:', { name });
+        
+        const selectedPanes = appState.getSelectedPanes();
+        console.log('📋 Selected panes:', selectedPanes);
+        
+        const cluster = clusterManager.createClusterFromSelection(name, selectedPanes);
+        
+        if (cluster) {
+            appState.clearSelection();
+            console.log(`✅ Successfully created cluster "${name}" with ${cluster.paneIds.length} panes`);
+        } else {
+            console.error('❌ Failed to create cluster');
+        }
+    }
+    
+    function handleClusterCancel() {
+        // Optional: could clear selection on cancel if desired
+    }
+    
+    function handleClickOutside(event: MouseEvent) {
+        if (contextMenuVisible) {
+            const target = event.target as Element;
+            const isInsideContextMenu = target?.closest('.context-menu');
+            
+            console.log('🖱️ Click outside check:', {
+                contextMenuVisible,
+                target: target?.tagName,
+                isInsideContextMenu: !!isInsideContextMenu,
+                targetClasses: target?.className
+            });
+            
+            if (!isInsideContextMenu) {
+                console.log('❌ Closing context menu due to outside click');
+                contextMenuVisible = false;
+            }
+        }
+    }
+
 </script>
 
+<svelte:window oncontextmenu={handleRightClick} onclick={handleClickOutside} />
+
 <ChunkRoot></ChunkRoot>
-<Dock bind:doubleClickEligible={doubleClickEligible}></Dock>
+<Dock 
+    bind:doubleClickEligible={doubleClickEligible}
+    onItemClick={handleDockItemClick}
+    worldMapVisible={worldMapVisible}
+></Dock>
 {#if appState.state == "InteractMenu"}
     <RadialMenu></RadialMenu>
 {/if}
+<WorldMap bind:visible={worldMapVisible} onChunkClick={handleWorldMapChunkClick} currentViewportPos={appState.viewportPos} />
+
+<!-- Context Menu -->
+<ContextMenu 
+    bind:visible={contextMenuVisible}
+    x={contextMenuX}
+    y={contextMenuY}
+    onConfirm={handleClusterConfirm}
+    onCancel={handleClusterCancel}
+/>

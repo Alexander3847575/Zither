@@ -68,6 +68,7 @@ export class StorageManager {
         const key = this.coordsToKey(coords);
         return this.store.has(key);
     }
+    
 
     /** Get all stored chunk coordinates */
     public getAllChunkCoords(): [number, number][] {

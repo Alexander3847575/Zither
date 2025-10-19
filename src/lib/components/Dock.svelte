@@ -37,8 +37,8 @@ Usage:
 	 * @property {boolean} [hasSlider] - Whether this item shows a slider instead of dropdown
 	 */
 
-	/** @type {{ position?: 'bottom' | 'top' | 'left' | 'right', onItemClick?: (id: string, label: string) => void, onZoomChange?: (value: number) => void, doubleClickEligible?: boolean }} */
-	let { position = $bindable('bottom'), onItemClick, onZoomChange, doubleClickEligible = $bindable(false) } = $props();
+	/** @type {{ position?: 'bottom' | 'top' | 'left' | 'right', onItemClick?: (id: string, label: string) => void, onZoomChange?: (value: number) => void, doubleClickEligible?: boolean, worldMapVisible?: boolean }} */
+	let { position = $bindable('bottom'), onItemClick, onZoomChange, doubleClickEligible = $bindable(false), worldMapVisible = false } = $props();
 
 	let activeDropdown = $state(/** @type {string | null} */ (null));
 	let closeTimeout = $state(/** @type {NodeJS.Timeout | null} */ (null));
@@ -324,7 +324,7 @@ Usage:
 		>
 			<button
 				class="dock-item"
-				class:dock-item--active={activeDropdown === item.id}
+				class:dock-item--active={activeDropdown === item.id || (item.id === 'world-map' && worldMapVisible)}
 				onclick={(e) => {
 					console.log('Dock button onclick fired for:', item.id);
 					e.stopPropagation();
