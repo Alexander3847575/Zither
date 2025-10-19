@@ -372,7 +372,7 @@ Usage:
 		--dock-border-radius: 10rem;
 		--dock-gap: 0.375rem;
 		--dropdown-min-width: 11.25rem; /* 180px */
-		--dropdown-max-width: 18.75rem; /* 300px */
+		--dropdown-max-width: 12rem; /* 300px */
 		--slider-track-thickness: 0.25rem;
 		--slider-thumb-size: 1rem;
 	}
@@ -381,7 +381,7 @@ Usage:
 		display: flex;
 		gap: var(--dock-gap);
 		padding: var(--dock-padding-inline);
-		background: rgba(255, 255, 255, 0.1);
+		background: rgba(0, 0, 0, 0.5);
 		backdrop-filter: blur(10px);
 		border-radius: var(--dock-border-radius);
 		border: 1px solid rgba(255, 255, 255, 0.2);
@@ -414,7 +414,7 @@ Usage:
 		gap: var(--dock-gap);
 		padding: var(--dock-padding-block) var(--dock-padding-inline);
 		border-radius: var(--dock-border-radius);
-		color: white;
+		color: rgb(86, 86, 86);
 		margin-left: 1rem;
 		cursor: pointer;
 		transition: all 0.2s ease;
@@ -431,16 +431,15 @@ Usage:
 	.dock-item:active,
 	.dock-item--active {
 		transform: translateY(0);
-		background: rgba(255, 255, 255, 0.3);
-		border-color: rgba(255, 255, 255, 0.4);
+		background: rgba(80, 80, 80, 0.3);
+		border-color: rgba(89, 89, 89, 0.4);
 	}
 
 	/* Dropdown Styles */
 	.dropdown {
 		position: absolute;
-		background: rgba(255, 255, 255, 0.15);
+		background: rgba(54, 54, 54, 0.15);
 		backdrop-filter: blur(15px);
-		border: 1px solid rgba(255, 255, 255, 0.3);
 		border-radius: var(--dock-border-radius);
 		padding: var(--dock-gap);
 		/* Dynamic: responsive width with min/max constraints */
@@ -553,7 +552,7 @@ Usage:
 	}
 
 	.dropdown-item:hover {
-		background: rgba(255, 255, 255, 0.2);
+		background: rgba(75, 75, 75, 0.2);
 	}
 
 	.dropdown-item__icon {
@@ -567,7 +566,7 @@ Usage:
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		color: white; /* This sets the stroke color via currentColor */
+		color: rgb(52, 52, 52); /* This sets the stroke color via currentColor */
 	}
 
 	.dropdown-item__icon--img {
@@ -590,7 +589,7 @@ Usage:
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		color: white; /* This sets the stroke color via currentColor */
+		color: rgb(73, 73, 73); /* This sets the stroke color via currentColor */
 	}
 
 	.dock-item__icon--img {
