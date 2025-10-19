@@ -505,8 +505,8 @@ Usage:
 	/* Dropdown Styles */
 	.dropdown {
 		position: absolute;
-		background: rgba(54, 54, 54, 0.9);
-		backdrop-filter: blur(15px);
+		background: rgba(0, 0, 0, 0.5);
+		backdrop-filter: blur(10px);
 		border-radius: 1rem;
 		padding: var(--dock-gap);
 		/* Dynamic: responsive width with min/max constraints */
@@ -674,8 +674,8 @@ Usage:
 	/* Slider container styles */
 	.slider-container {
 		position: absolute;
-		background: rgba(54, 54, 54, 0.9);
-		backdrop-filter: blur(15px);
+		background: rgba(0, 0, 0, 0.5);
+		backdrop-filter: blur(10px);
 		border-radius: 0.7rem;
 		padding: 0.25rem;
 		z-index: 1000;
