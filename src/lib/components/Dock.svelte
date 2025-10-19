@@ -415,6 +415,7 @@ Usage:
 		padding: var(--dock-padding-block) var(--dock-padding-inline);
 		border-radius: var(--dock-border-radius);
 		color: white;
+		margin-left: 1rem;
 		cursor: pointer;
 		transition: all 0.2s ease;
 		font-size: 0.875rem; /* 14px */
@@ -544,7 +545,7 @@ Usage:
 		background: transparent;
 		border: none;
 		border-radius: 6px;
-		color: white;
+		color: rgb(108, 108, 108);
 		cursor: pointer;
 		transition: background-color 0.15s ease;
 		font-size: 13px;
