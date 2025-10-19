@@ -37,6 +37,12 @@
     let width = $derived(scale.current * unscaledWidth);
     let height = $derived(scale.current * unscaledHeight);
 
+    let borderColor = $derived(rgbaToHex(...paneData.color));
+    function rgbaToHex(r: number, g: number, b: number, a: number) {
+        const toHex = (value: number) => value.toString(16).padStart(2, '0');
+        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    }
+
 
     function onmouseenter() {
         active = true;
@@ -195,11 +201,13 @@
 	top: {yOffset - (height - unscaledHeight) / 2}px;
 	width: {width}px;
 	height: {height}px;
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    -webkit-box-sizing: border-box;
+    border: 5px solid {borderColor};
     border-radius: 25px;
     overflow: hidden;
     z-index: 10;
-    border: 20px;
-
 	"
     class="
     pane-{paneData.uuid}

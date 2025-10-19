@@ -28,7 +28,7 @@
         paneCoords: [1, 1],
         paneSize: [2, 3],
         semanticTags: "",
-        color: [255, 0, 0, 255],
+        color: [200, 200, 200, 120],
     });
     } else if (event.ctrlKey && key === "s") {
     event.preventDefault(); // Prevent default browser behavior

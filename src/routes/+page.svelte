@@ -62,6 +62,7 @@
         effectiveDelta: effectiveDelta,
         directionData: directionData,
         activeChunk: "",
+        activePane: "",
         selectedPanes: new SvelteSet<string>(),
         selectionMode: false as boolean,
         // Selection methods
