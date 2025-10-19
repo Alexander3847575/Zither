@@ -387,10 +387,11 @@ Usage:
 		border: 1px solid rgba(255, 255, 255, 0.2);
 		opacity: 0.3;
 		transition: opacity 0.3s ease;
+		z-index:100;
 	}
 
 	.dock:hover {
-		opacity: 1;
+		opacity: 0.9;
 	}
 
 	.dock--bottom,
