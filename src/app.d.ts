@@ -6,6 +6,7 @@ declare global {
 	interface Window
     {
         api: any;
+		viewApi: any;
     }
 	// interface Error {}
 	// interface Locals {}

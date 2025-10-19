@@ -3,6 +3,7 @@
     import { cubicIn, elasticOut, quartOut } from "svelte/easing";
     import { Tween } from "svelte/motion";
     import { ChunkManager } from "$lib/framework/chunkManager";
+    import { marked } from 'marked';
 
     const PaneState = {
 		Default: "Default",
@@ -154,7 +155,6 @@
                 //yOffset += event.movementY;
                 unscaledHeight += event.movementY;
                 paneData.paneSize[1] = height / appState.unitToPixelRatio.current;
-
                 break;
             case 4: 
                 xOffset += event.movementX;
@@ -166,31 +166,139 @@
     }
 
 
-    // PDF preview state (use $state so Svelte reactivity updates the template)
-	let pdfUrl = $state<string | null>(null);
+    // File preview state (use $state so Svelte reactivity updates the template)
+    let pdfUrl = $state<string | null>(null);
     let imgUrl =  $state<string | null>(null);
-	let _prevUrl: string | null = null;
-    function onFileChange(e: Event) {
+    let markdownHtml = $state<string | null>(null);
+    let urlInput = $state<string>('');
+    let iframeUrl = $state<string | null>(null);
+    let _prevUrl: string | null = null;
+    let viewId: string | null = null;
+    let paneElement: HTMLElement | null = null;
+
+    async function onFileChange(e: Event) {
         const input = e.target as HTMLInputElement;
         const file = input?.files?.[0];
         if (!file) {
             return;
         }
-        console.log("Opening " + file.type);
+        console.log("Opening " + file.type + " (" + (file.name ?? '') + ")");
+
+        // Revoke previous object URL if any
         if (_prevUrl) {
-            URL.revokeObjectURL(_prevUrl);
+            try { URL.revokeObjectURL(_prevUrl); } catch (err) { /* ignore */ }
+            _prevUrl = null;
         }
+
+        // Clear previous previews
+        pdfUrl = null;
+        imgUrl = null;
+        markdownHtml = null;
+
+        // handle PDFs
         if (file.type === 'application/pdf') {
             const url = URL.createObjectURL(file);
             pdfUrl = url;
             _prevUrl = url;
-        } else if (file.type.startsWith('image/')) {
-            imgUrl = URL.createObjectURL(file);
-        } else {
-            pdfUrl = null;
-            _prevUrl = null;
+            return;
+        }
+
+        // handle images
+        if (file.type.startsWith('image/')) {
+            const url = URL.createObjectURL(file);
+            imgUrl = url;
+            _prevUrl = url;
+            return;
+        }
+
+        // handle markdown (by extension or MIME)
+        const name = file.name ?? '';
+        const isMarkdownExt = /\.(md|markdown)$/i.test(name);
+        const isMarkdownType = file.type === 'text/markdown' || (file.type.startsWith('text/') && isMarkdownExt);
+        if (isMarkdownExt || isMarkdownType) {
+            try {
+                const text = await file.text();
+                // parse to HTML via marked
+                markdownHtml = await marked.parse(text);
+            } catch (err) {
+                console.warn('Failed to read markdown file', err);
+                markdownHtml = '<pre>Failed to read file</pre>';
+            }
+            return;
+        }
+
+        // fallback: try to read as text and render as markdown
+        try {
+            const text = await file.text();
+            markdownHtml = await marked.parse(text);
+        } catch (err) {
+            console.warn('Unsupported file type and failed to read as text', err);
         }
     }
+
+    function onUrlInput(e: Event) {
+        const input = e.target as HTMLInputElement;
+        urlInput = input?.value ?? '';
+    }
+
+    function onUrlKeydown(e: KeyboardEvent) {
+        if (e.key === 'Enter') {
+            loadUrl();
+        }
+    }
+
+    function loadUrl() {
+        // basic validation via URL constructor; allow http and https only
+        try {
+            const candidate = urlInput.trim();
+            if (!candidate) return;
+            const u = new URL(candidate.includes('://') ? candidate : `https://${candidate}`);
+            if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+                console.warn('Unsupported protocol for iframe:', u.protocol);
+                return;
+            }
+            iframeUrl = u.toString();
+            // create or update a BrowserView in the main process
+            if (!viewId) {
+                viewId = `pane-view-${paneData.uuid}`;
+                // create view (main process will attach to the main window)
+                // initial bounds will be updated immediately by updateView after measuring
+                window.viewApi.createView(viewId, iframeUrl, { x: 0, y: 0, width: 100, height: 100 }).catch((e: Error) => console.warn(e));
+            } else {
+                window.viewApi.createView(viewId, iframeUrl, { x: 0, y: 0, width: 100, height: 100 }).catch((e: Error) => console.warn(e));
+            }
+            // clear other previews
+            pdfUrl = null;
+            imgUrl = null;
+            markdownHtml = null;
+        } catch (err) {
+            console.warn('Invalid URL:', urlInput, err);
+        }
+    }
+
+    // measure and update view bounds whenever the pane moves or resizes
+    function updateViewBounds() {
+        if (!viewId || !paneElement) return;
+        const rect = paneElement.getBoundingClientRect();
+        // Convert to device pixels if necessary; use rect directly for now
+        window.viewApi.updateView(viewId, { x: Math.round(rect.left), y: Math.round(rect.top), width: Math.round(rect.width), height: Math.round(rect.height) }).catch((e: Error) => console.warn(e));
+    }
+
+    /*onMount(() => {
+        // watch for layout changes
+        const ro = new ResizeObserver(() => updateViewBounds());
+        if (paneElement) ro.observe(paneElement);
+        // also update periodically while dragging
+        const interval = setInterval(() => updateViewBounds(), 250);
+        return () => {
+            ro.disconnect();
+            clearInterval(interval);
+            if (viewId) {
+                window.viewApi.destroyView(viewId).catch((e: Error) => console.warn(e));
+                viewId = null;
+            }
+        };
+    });*/
 
 </script>
 
@@ -207,7 +315,7 @@
     border: 5px solid {borderColor};
     border-radius: 25px;
     overflow: hidden;
-    z-index: 10;
+    z-index: 50;
 	"
     class="
     pane-{paneData.uuid}
@@ -222,7 +330,7 @@
     {onmousemove}
 >
     <div class="        
-        flex justify-center items-center text-center w-full h-full text-slate-50">
+        flex justify-center items-center text-center w-full h-full text-slate-50" bind:this={paneElement}>
         <!-- PDF preview (renders when a PDF is selected) -->
         {#if pdfUrl}
             <div style="
@@ -239,17 +347,31 @@
             <img src="{imgUrl}" alt="" style="
             user-drag: none;
             user-select: none;"/>
+        {:else if markdownHtml}
+            <div class="markdown-preview w-full h-full overflow-auto text-left p-4 bg-white text-black" style="box-sizing: border-box;">
+                {@html markdownHtml}
+            </div>
+        {:else if iframeUrl}
+            <!-- Use Electron's WebContentsView element to embed web content in the renderer -->
+            <webcontents-view src={iframeUrl} title="Loaded webpage preview" style="width:100%; height:100%; border:0;"></webcontents-view>
         {:else}
             <!-- PDF upload input -->
-            <label for="pdf-input-{paneData.uuid}" class="text-sm block">
-                <svg xmlns="http://www.w3.org/2000/svg" width="{width/2}" height="{width/2}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-file"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /></svg>
-            </label>
-            <input 
-            id="pdf-input-{paneData.uuid}"
-            type="file"
-            accept="*"
-            onchange={onFileChange}
-            class="mt-1 hidden" />
+            <div class="block gap-2">
+                <div class="flex items-center">
+                    <label for="pdf-input-{paneData.uuid}" class="text-sm block">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="{width/2}" height="{width/2}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-file"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /></svg>
+                    </label>
+                    <input 
+                    id="pdf-input-{paneData.uuid}"
+                    type="file"
+                    accept="*"
+                    onchange={onFileChange}
+                    class="mt-1 hidden" />
+                </div>
+                <!-- URL loader -->
+                <input type="text" placeholder="https://example.com" class="px-2 py-1 rounded" value={urlInput} oninput={onUrlInput} onkeydown={onUrlKeydown} />
+                <button class="px-3 py-1 bg-blue-600 rounded text-white" onclick={loadUrl}>Load</button>
+            </div>
         {/if}
     </div>
 </div>
