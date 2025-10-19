@@ -125,7 +125,9 @@ Usage:
 	 */
 	function handleMouseLeave(itemId) {
 		// Only close if leaving the currently active dropdown's container
-		if (activeDropdown === itemId) {
+		// Don't auto-close for items with sliders (like zoom)
+		const item = items.find(i => i.id === itemId);
+		if (activeDropdown === itemId && !item?.hasSlider) {
 			closeTimeout = setTimeout(() => {
 				activeDropdown = null;
 				closeTimeout = null;
@@ -322,8 +324,13 @@ Usage:
 
 			{#if activeDropdown === item.id}
 				{#if item.hasSlider}
-					<div class="slider-container slider-container--{position}">
-						<Slider 
+					<!-- svelte-ignore a11y_click_events_have_key_events -->
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div
+						class="slider-container slider-container--{position}"
+						onclick={(e) => e.stopPropagation()}
+					>
+						<Slider
 							bind:value={zoomLevel}
 							min={0.1}
 							max={3}
@@ -369,7 +376,7 @@ Usage:
 		--dock-icon-size: 1rem;
 		--dock-padding-block: 0.3rem;
 		--dock-padding-inline: 0.3rem;
-		--dock-border-radius: 10rem;
+		--dock-border-radius: 30rem;
 		--dock-gap: 0.375rem;
 		--dropdown-min-width: 11.25rem; /* 180px */
 		--dropdown-max-width: 12rem; /* 300px */
@@ -383,7 +390,7 @@ Usage:
 		padding: var(--dock-padding-inline);
 		background: rgba(0, 0, 0, 0.5);
 		backdrop-filter: blur(10px);
-		border-radius: var(--dock-border-radius);
+		border-radius: 1rem;
 		border: 1px solid rgba(255, 255, 255, 0.2);
 		opacity: 0.3;
 		transition: opacity 0.3s ease;
@@ -424,7 +431,6 @@ Usage:
 
 	.dock-item:hover {
 		background: rgba(255, 255, 255, 0.2);
-		transform: translateY(-2px);
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 	}
 
@@ -433,6 +439,7 @@ Usage:
 		transform: translateY(0);
 		background: rgba(80, 80, 80, 0.3);
 		border-color: rgba(89, 89, 89, 0.4);
+		border-radius:var(--dock-border-radius);
 	}
 
 	/* Dropdown Styles */
@@ -440,7 +447,7 @@ Usage:
 		position: absolute;
 		background: rgba(54, 54, 54, 0.15);
 		backdrop-filter: blur(15px);
-		border-radius: var(--dock-border-radius);
+		border-radius: 1rem;
 		padding: var(--dock-gap);
 		/* Dynamic: responsive width with min/max constraints */
 		width: clamp(var(--dropdown-min-width), max-content, var(--dropdown-max-width));
@@ -542,9 +549,8 @@ Usage:
 		width: 100%;
 		padding: 8px 12px;
 		background: transparent;
-		border: none;
-		border-radius: 6px;
-		color: rgb(108, 108, 108);
+		border-radius: var(--dock-border-radius);
+		color: rgb(255, 255, 255);
 		cursor: pointer;
 		transition: background-color 0.15s ease;
 		font-size: 13px;
@@ -608,7 +614,7 @@ Usage:
 	/* Slider container styles */
 	.slider-container {
 		position: absolute;
-		background: rgba(255, 255, 255, 0.15);
+		background: rgba(54, 54, 54, 0.15);
 		backdrop-filter: blur(15px);
 		border: 1px solid rgba(255, 255, 255, 0.3);
 		border-radius: 30px;
@@ -627,6 +633,7 @@ Usage:
 		left: 50%;
 		transform: translateX(-50%);
 		margin-bottom: var(--dock-gap);
+		margin-left: 0.5rem;
 		flex-direction: column;
 		/* Dynamic: inherit width from parent button, with minimum for usability */
 		width: 100%;
@@ -638,6 +645,7 @@ Usage:
 		left: 50%;
 		transform: translateX(-50%);
 		margin-top: var(--dock-gap);
+		margin-left: 0.5rem;
 		flex-direction: column;
 		/* Dynamic: inherit width from parent button, with minimum for usability */
 		width: 100%;
