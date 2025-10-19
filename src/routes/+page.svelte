@@ -1,6 +1,7 @@
 <script lang="ts">
     import ChunkRoot from "$lib/components/ChunkRoot.svelte";
     import Dock from "$lib/components/Dock.svelte";
+  import RadialMenu from "$lib/components/RadialMenu.svelte";
     import { setContext } from "svelte";
     import { cubicOut } from "svelte/easing";
     import { Tween } from "svelte/motion";
@@ -32,6 +33,7 @@
     ];
     let chunkAspectRatio = chunkSize[0] / chunkSize[1];
     let initialOffset = [screen.availWidth / 2 - chunkDimensions[0].current / 2, screen.availHeight / 2 - chunkDimensions[1].current / 2];
+    let mousePos: [number, number] = [0, 0];
     let mouseDelta: [number, number] = [0, 0];
     let effectiveDelta: [number, number] = [0, 0];
         let globalOffset: [Tween<number>, Tween<number>] = [
@@ -54,6 +56,8 @@
         chunkSize: chunkSize,
         chunkDimensions: chunkDimensions,
         globalOffset: globalOffset,
+        mousePos: mousePos,
+        mouseDelta: mouseDelta,
         effectiveDelta: effectiveDelta,
         directionData: directionData,
         activeChunk: "",
@@ -78,7 +82,7 @@
             case 0:
                 appState.state = AppStates.MovingPane;
                 break;
-            case 1:
+            case 2:
                 //console.log("Open context menu")
                 appState.state = AppStates.InteractMenu;
                 break;
@@ -132,11 +136,13 @@
     });
 
     body?.addEventListener("mousemove", (event) => {
-        if (!((appState.state == AppStates.MovingPane) || (appState.state == AppStates.MovingSpace)))
+        appState.mousePos[0] = event.clientX;
+        appState.mousePos[1] = event.clientY;
+        if ((appState.state == AppStates.Default) || (appState.state == AppStates.InteractPane))
             return;
-        mouseDelta[0] += event.movementX;
-        mouseDelta[1] += event.movementY;
-        appState.effectiveDelta = calculateEffectiveDelta(mouseDelta, appState.chunkDimensions[0].current, [1, chunkAspectRatio]);
+        appState.mouseDelta[0] += event.movementX;
+        appState.mouseDelta[1] += event.movementY;
+        appState.effectiveDelta = calculateEffectiveDelta(appState.mouseDelta, appState.chunkDimensions[0].current, [1, chunkAspectRatio]);
         if (appState.state == AppStates.MovingSpace) {
             updateGlobalOffset(appState.globalOffset, appState.effectiveDelta);
         }
@@ -149,14 +155,14 @@
         let snapTolerance = 4
         if (appState.state == AppStates.MovingSpace) {
             let newViewportPos = appState.viewportPos;
-            if (Math.abs(mouseDelta[0]) >= chunkDimensions[0].current / snapTolerance){
-                newViewportPos[0] += 1 * Math.sign(mouseDelta[0]) * -1;
+            if (Math.abs(appState.mouseDelta[0]) >= chunkDimensions[0].current / snapTolerance){
+                newViewportPos[0] += 1 * Math.sign(appState.mouseDelta[0]) * -1;
             }
-            if (Math.abs(mouseDelta[1]) >= chunkDimensions[1].current / snapTolerance) {
-                newViewportPos[1] += 1 * Math.sign(mouseDelta[1]);
+            if (Math.abs(appState.mouseDelta[1]) >= chunkDimensions[1].current / snapTolerance) {
+                newViewportPos[1] += 1 * Math.sign(appState.mouseDelta[1]);
             }
             appState.viewportPos = newViewportPos;
-            mouseDelta = [0, 0];
+            appState.mouseDelta = [0, 0];
             appState.effectiveDelta = [0, 0];
             updateGlobalOffset(appState.globalOffset);
         }
@@ -301,3 +307,6 @@
 
 <ChunkRoot></ChunkRoot>
 <Dock></Dock>
+{#if appState.state == "InteractMenu"}
+    <RadialMenu></RadialMenu>
+{/if}

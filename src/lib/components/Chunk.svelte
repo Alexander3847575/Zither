@@ -41,7 +41,7 @@
 	width: {appState.chunkDimensions[0].current}px;
 	height: {appState.chunkDimensions[1].current}px;
 	background-size: 5.1vmin 5.2vmin;
-	background-image: radial-gradient(rgba(0, 0, 0, 0.1) 9%, transparent 9%);
+	background-image: radial-gradient(rgba(0, 0, 0, 0.07) 9%, transparent 9%);
 	background-position: 25% 25%;
 	"
 	class="

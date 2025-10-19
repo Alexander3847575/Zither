@@ -27,6 +27,8 @@ declare global {
 		chunkSize: [number, number],
 		chunkDimensions: [Tween<number>, Tween<number>],
 		globalOffset: [Tween<number>, Tween<number>],
+		mousePos: [number, number],
+		mouseDelta: [number, number],
 		effectiveDelta: [number, number], // 
 		directionData: string,
 		activeChunk: string,
