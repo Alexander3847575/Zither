@@ -8,7 +8,7 @@
 
 
 
-<div class="absolute bg-slate-600 rounded-2xl m-2 text-slate-200 px-2" style="z-index: 10;">
+<div class="absolute bg-slate-600 rounded-2xl m-2 text-slate-200 px-2" style="z-index: 100;">
     State: {appState.state}
     Pos: {appState.viewportPos}
     Del: {appState.effectiveDelta}

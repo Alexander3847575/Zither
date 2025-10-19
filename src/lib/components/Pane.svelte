@@ -19,7 +19,9 @@
     let xOffset = $derived(paneData.paneCoords[0] * appState.unitToPixelRatio.current);  
     let yOffset = $derived(paneData.paneCoords[1] * appState.unitToPixelRatio.current);  
     let active = $state(false);
-
+    let dragging = $state(false);
+    let shouldCancelPointerEvents = $derived((appState.state == "MovingPane") ? "pointer-events-none" : "");
+    let resizing = $state(0);
     let mouseDelta = [0, 0];
 
     function onmouseenter() {
@@ -27,6 +29,72 @@
     }
     function onmouseleave() {
         active = false;
+        dragging = false;
+    }
+    
+    function onmousedown(event: MouseEvent) {
+        if (!active) {
+            return;
+        }
+        let resizeMargin = 10;
+        if (event.x > xOffset + width - resizeMargin) {
+            console.log("right")
+            // resize right
+            resizing = 2;
+            return;
+        } else if (event.x < xOffset + resizeMargin) {
+            console.log("left")
+            //resizing left
+            resizing = 4;
+            return;
+        } else if (event.y < yOffset + resizeMargin) {
+            console.log("top")
+            // resize top
+            resizing = 1;
+            return;
+        } else if (event.y > height + yOffset - resizeMargin) {
+            console.log("bottom")
+            resizing = 3
+            return;
+        }
+
+        if (appState.state != "MovingPane") {
+            return;
+        }
+
+        dragging = true;
+        event.stopPropagation();
+    }
+
+    function onmouseup() {
+        dragging = false;
+        resizing = 0;
+    }
+    function onmousemove(event: MouseEvent) {
+        if (dragging) {
+            xOffset += event.movementX;
+            yOffset += event.movementY;
+            return;
+        }
+
+        switch (resizing) {
+            case 1:
+                yOffset += event.movementY;
+                height += event.movementY;
+                break;
+            case 2: 
+                //xOffset += event.movementX;
+                width += event.movementX;
+                break;
+            case 3: 
+                //yOffset += event.movementY;
+                height += event.movementY;
+                break;
+            case 4: 
+                xOffset += event.movementX;
+                width -= event.movementX;
+                break;
+        }
     }
 
     // PDF preview state (use $state so Svelte reactivity updates the template)
@@ -62,25 +130,44 @@
 	height: {height}px;
     border-radius: 25px;
     overflow: hidden;
+    z-index: 10;
+    border: 20px;
 	"
     class="
     pane-{paneData.uuid}
     absolute
     bg-slate-500
+
     "
     {onmouseenter}
     {onmouseleave}
+    {onmousedown}
+    {onmouseup}
+    {onmousemove}
 >
     
     <!-- PDF preview (renders when a PDF is selected) -->
     {#if !pdfUrl}
         <!-- PDF upload input -->
-        <div class="mt-2">
-            <label for="pdf-input-{paneData.uuid}" class="text-sm block">Upload PDF:</label>
-            <input id="pdf-input-{paneData.uuid}" type="file" accept="application/pdf" onchange={onFileChange} class="mt-1" />
+        <div class="        
+        flex justify-center items-center text-center w-full h-full text-slate-50">
+            <label for="pdf-input-{paneData.uuid}" class="text-sm block">
+                <svg xmlns="http://www.w3.org/2000/svg" width="70" height="70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-file"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /></svg>
+            </label>
+            <input 
+            id="pdf-input-{paneData.uuid}"
+            type="file"
+            accept="application/pdf"
+            onchange={onFileChange}
+            class="mt-1 hidden" />
         </div>
     {:else}
-        <div class=" w-full h-full border border-gray-300">
+        <div style="
+        width: {width}px;
+        height: {height}px;
+        "
+        class="border border-gray-300 absolute
+        ">
             <object title="PDF preview" data={pdfUrl + "#toolbar=0&navpanes=0&scrollbar=0&statusbar=0&messages=0"} type="application/pdf" width="100%" height="100%">
                 <p>PDF preview not available.</p>
             </object>

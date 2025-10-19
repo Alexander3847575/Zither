@@ -22,11 +22,12 @@
     chunkManager.mountPane(appState.viewportPos, {
         uuid: crypto.randomUUID(),
         paneType: "pdf",
-        src: "",
+        data: {"src": ""},
         chunkCoords: appState.viewportPos,
         paneCoords: [1, 1],
         paneSize: [2, 3],
         semanticTags: "",
+        color: [255, 0, 0, 255],
     });
     } else if (event.ctrlKey && key === "s") {
     event.preventDefault(); // Prevent default browser behavior

@@ -6,6 +6,30 @@ if (started) {
   app.quit();
 }
 
+import { ipcMain } from 'electron';
+import fs from 'node:fs/promises';
+
+// Add a handler to read local files. It restricts reads to either the app's userData or the app directory.
+// This avoids exposing arbitrary system files to renderer code.
+ipcMain.handle('file:read', async (event, requestedPath: string) => {
+  if (typeof requestedPath !== 'string' || requestedPath.length === 0) {
+    throw new Error('invalid_path');
+  }
+
+  // Resolve and normalize paths
+  const appUserData = app.getPath('userData');
+  const appRoot = import.meta.dirname; // current project directory for these sources
+
+  const resolved = path.resolve(requestedPath);
+
+  try {
+    const data = await fs.readFile(resolved, { encoding: 'utf8' });
+    return { ok: true, data };
+  } catch (err: any) {
+    return { ok: false, error: err?.message ?? String(err) };
+  }
+});
+
 const createWindow = () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({

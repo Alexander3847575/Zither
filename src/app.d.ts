@@ -1,6 +1,10 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 declare global {
+	interface Window
+    {
+        api: any;
+    }
 	// interface Error {}
 	// interface Locals {}
 	// interface PageData {}
@@ -31,12 +35,12 @@ declare global {
 	export interface PaneData {
 		uuid: string,
 		paneType: string,
-		src: string,
+		data: Object,
 		chunkCoords: [number, number],
 		paneCoords: [number, number],
 		paneSize: [number, number],
 		semanticTags: string,
-		
+		color: [number, number, number, number],
 	}
 	
 	export const PaneState = {

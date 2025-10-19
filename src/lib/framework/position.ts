@@ -37,8 +37,6 @@ export class GridPosition {
     public gridXRatio: number = 0;
     public gridYRatio: number = 0;
 
-   
-
     constructor(grid: Grid, gridX?: number, gridY?: number) {
         
         this.grid = grid;
