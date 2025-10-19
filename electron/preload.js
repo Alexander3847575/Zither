@@ -14,5 +14,10 @@ contextBridge.exposeInMainWorld('api', {
       throw new Error('invalid_path');
     }
     return ipcRenderer.invoke('file:read', filePath);
-  }
+  },
+  // Python API controls
+  startPythonAPI: async () => ipcRenderer.invoke('python-api:start'),
+  stopPythonAPI: async () => ipcRenderer.invoke('python-api:stop'),
+  pythonAPIStatus: async () => ipcRenderer.invoke('python-api:status'),
+  clusterTabs: async (tabs) => ipcRenderer.invoke('python-api:cluster-tabs', tabs)
 });

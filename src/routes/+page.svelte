@@ -367,7 +367,7 @@
         updateGlobalOffset(appState.globalOffset, [0, 0], false);
     }
 
-    function handleDockItemClick(itemId: string, label: string): void {
+    async function handleDockItemClick(itemId: string, label: string): Promise<void> {
         console.log(`Dock item clicked: ${itemId} (${label})`);
         
         switch (itemId) {
@@ -375,8 +375,17 @@
                 worldMapVisible = !worldMapVisible;
                 break;
             case 'auto-arrange':
-                // Future: implement auto-arrange functionality
-                console.log('Auto-arrange not yet implemented');
+                console.log('Auto-arrange: starting backend clustering...');
+                try {
+                    const clusters = await clusterManager.autoClusterFromBackend(15000);
+                    if (clusters && clusters.length > 0) {
+                        console.log(`Auto-arrange: applied ${clusters.length} clusters`);
+                    } else {
+                        console.log('Auto-arrange: no clusters produced');
+                    }
+                } catch (e) {
+                    console.error('Auto-arrange failed:', e);
+                }
                 break;
             case 'new-browser':
                 // Future: handle new browser pane

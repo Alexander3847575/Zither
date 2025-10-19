@@ -409,60 +409,49 @@ class LLMClusterNamer:
     
     def _gemini_batch_cluster_naming(self, cluster_data: List[Dict]) -> List[str]:
         """
-        Generate names for all clusters using a single Gemini API call.
-        
-        Args:
-            cluster_data: List of cluster data with cluster_id and tabs
-            
-        Returns:
-            List of cluster names in the same order as the input.
+        Generate names for all clusters using Gemini (google-generativeai) and return a list of names.
+        Falls back to simple defaults on parse errors.
         """
-        from google import genai
-        from pydantic import BaseModel, RootModel
-        from typing import List as TypingList
         import os
-        
-        # Define Pydantic model for batch response
-        class BatchClusterNames(RootModel[TypingList[str]]):
-            root: TypingList[str]
-        
-        # Configure Gemini client
+        import json
+        import google.generativeai as genai
+
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise ValueError("GEMINI_API_KEY not found")
-        
-        client = genai.Client(api_key=api_key)
-        
-        # Create batch prompt
-        prompt_parts = ["Analyze these browser tab clusters and suggest a 2-3 word category name for each cluster that best describes their common theme:\n"]
-        
+
+        genai.configure(api_key=api_key)
+
+        prompt_parts = [
+            "Analyze these browser tab clusters and suggest a concise 2-3 word category name for each cluster that best describes their common theme.",
+            "Respond ONLY with a valid JSON array of strings, in the same order as the clusters provided.",
+            "Examples: ['AI Tools', 'Web Development', 'News & Media']",
+            "",
+        ]
+
         for i, cluster in enumerate(cluster_data, 1):
             prompt_parts.append(f"Cluster {i}:")
-            for tab in cluster['tabs']:
+            for tab in cluster.get('tabs', []):
                 prompt_parts.append(f"  - {tab}")
             prompt_parts.append("")
-        
-        prompt_parts.extend([
-            "Examples of good category names: \"AI Tools\", \"Web Development\", \"News & Media\", \"Productivity Apps\", \"Travel & Weather\", \"Shopping & Finance\", \"Sports\", \"Entertainment\", \"Education\", \"Programming & Tech\"",
-            "",
-            "Return a JSON array of strings, with each string being a cluster name. Ensure the order of names matches the order of clusters in the prompt."
-        ])
-        
+
         prompt = "\n".join(prompt_parts)
-        
-        # Generate response with Pydantic schema enforcement
-        response = client.models.generate_content(
-            model="gemini-2.0-flash-exp",
-            contents=prompt,
-            config={
-                "response_mime_type": "application/json",
-                "response_schema": BatchClusterNames,
-            },
-        )
-        
-        # Parse the response using Pydantic
-        batch_response: BatchClusterNames = response.parsed
-        
-        # Return the list of names
-        return [name.strip() for name in batch_response.root]
+
+        # Use a fast, inexpensive model; keep consistent with embeddings stack
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        try:
+            resp = model.generate_content(prompt)
+            text = resp.text or "[]"
+            # Extract JSON (in case model wrapped it in markdown)
+            start = text.find('[')
+            end = text.rfind(']')
+            json_text = text[start:end+1] if start != -1 and end != -1 else text
+            names = json.loads(json_text)
+            if isinstance(names, list):
+                return [str(name).strip()[:60] or "Cluster" for name in names]
+        except Exception as e:
+            print(f"LLM naming failed, falling back to defaults: {e}")
+
+        # Fallback: generic names
+        return [f"Cluster {i+1}" for i in range(len(cluster_data))]
 

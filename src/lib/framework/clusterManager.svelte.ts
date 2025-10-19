@@ -47,6 +47,59 @@ class ClusterManager {
     }
 
     /**
+     * Auto-cluster current panes by calling the backend service.
+     * Uses Electron bridge if available, otherwise falls back to fetch.
+     */
+    async autoClusterFromBackend(timeoutMs: number = 15000): Promise<Cluster[] | null> {
+        const allChunks = storageManager.getAllChunksArray();
+        const panes: PaneData[] = allChunks.flatMap((c: ChunkData) => c.panes);
+        if (!panes || panes.length === 0) {
+            console.warn('No panes available to cluster.');
+            return null;
+        }
+
+        const tabsPayload = panes.map(p => ({ id: p.uuid, name: p.paneType }));
+
+        // Prefer Electron bridge if present
+        try {
+            if (typeof window !== 'undefined' && (window as any).api?.clusterTabs) {
+                // Ensure backend is running (best-effort)
+                try { await (window as any).api.startPythonAPI(); } catch {}
+                const result = await (window as any).api.clusterTabs(tabsPayload);
+                return this.createClustersFromAPI(result);
+            }
+        } catch (e) {
+            console.warn('Electron bridge clustering failed, falling back to fetch:', e);
+        }
+
+        // Fallback to direct fetch to local backend
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const resp = await fetch('http://localhost:8000/cluster', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(tabsPayload),
+                signal: controller.signal
+            });
+            if (!resp.ok) {
+                let detail = '';
+                try {
+                    const errJson = await resp.json();
+                    detail = errJson?.detail ? `: ${errJson.detail}` : '';
+                } catch {
+                    try { detail = `: ${await resp.text()}`; } catch {}
+                }
+                throw new Error(`HTTP ${resp.status}${detail}`);
+            }
+            const data = await resp.json();
+            return this.createClustersFromAPI(data);
+        } finally {
+            clearTimeout(t);
+        }
+    }
+
+    /**
      * Load clusters from localStorage into reactive state
      */
     private loadClustersFromStorage(): void {
