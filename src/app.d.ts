@@ -1,5 +1,7 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
+import type { SvelteSet } from 'svelte/reactivity';
+
 declare global {
 	interface Window
     {
@@ -32,6 +34,16 @@ declare global {
 		effectiveDelta: [number, number], // 
 		directionData: string,
 		activeChunk: string,
+		selectedPanes: SvelteSet<string>, // UUIDs of selected panes
+		selectionMode: boolean, // Whether we're in selection mode
+		// Selection methods
+		selectPane: (uuid: string) => void;
+		deselectPane: (uuid: string) => void;
+		toggleSelection: (uuid: string) => void;
+		clearSelection: () => void;
+		isSelected: (uuid: string) => boolean;
+		getSelectedPanes: () => string[];
+		getSelectionCount: () => number;
 	}
 
 	export interface PaneData {
@@ -43,6 +55,7 @@ declare global {
 		paneSize: [number, number],
 		semanticTags: string,
 		color: [number, number, number, number],
+		isSelected?: boolean, // Optional selection state for persistence
 	}
 
 	export interface ChunkData {

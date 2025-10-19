@@ -5,6 +5,7 @@
     import { setContext } from "svelte";
     import { cubicOut } from "svelte/easing";
     import { Tween } from "svelte/motion";
+    import { SvelteSet } from "svelte/reactivity";
 
     // Runtime export of application state enums
     export const AppStates = {
@@ -61,8 +62,43 @@
         effectiveDelta: effectiveDelta,
         directionData: directionData,
         activeChunk: "",
+        selectedPanes: new SvelteSet<string>(),
+        selectionMode: false as boolean,
+        // Selection methods
+        selectPane: function(uuid: string) {
+            this.selectedPanes.add(uuid);
+            this.selectionMode = true;
+        },
+        deselectPane: function(uuid: string) {
+            this.selectedPanes.delete(uuid);
+            if (this.selectedPanes.size === 0) {
+                this.selectionMode = false;
+            }
+        },
+        toggleSelection: function(uuid: string) {
+            if (this.selectedPanes.has(uuid)) {
+                this.deselectPane(uuid);
+            } else {
+                this.selectPane(uuid);
+            }
+        },
+        clearSelection: function() {
+            this.selectedPanes.clear();
+            this.selectionMode = false;
+        },
+        isSelected: function(uuid: string): boolean {
+            return this.selectedPanes.has(uuid);
+        },
+        getSelectedPanes: function(): string[] {
+            return Array.from(this.selectedPanes);
+        },
+        getSelectionCount: function(): number {
+            return this.selectedPanes.size;
+        }
     });
+
     setContext("appstate", appState);    
+
 
     //await chunkManager.testRender(7);
 
@@ -88,6 +124,15 @@
                 break;
         }
         return;
+    }
+
+    // Click-away deselection (only for left-click)
+    if (event.button === 0) {
+        const target = event.target as Element;
+        const clickedPane = target?.closest('[class*="pane-"]');
+        if (!clickedPane && appState.selectedPanes.size > 0) {
+            appState.clearSelection();
+        }
     }
 
     // Single click handler

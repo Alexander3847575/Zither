@@ -97,7 +97,14 @@ Usage:
 	 * @param {string} id
 	 */
 	function toggleDropdown(id) {
+		console.log('toggleDropdown called:', id, 'current activeDropdown:', activeDropdown, 'dock position:', position);
 		activeDropdown = activeDropdown === id ? null : id;
+		console.log('activeDropdown is now:', activeDropdown);
+
+		// Wait a bit and check if it's still set
+		setTimeout(() => {
+			console.log('After 100ms, activeDropdown is:', activeDropdown, 'position:', position);
+		}, 100);
 	}
 
 	/**
@@ -124,13 +131,16 @@ Usage:
 	 * @param {string} itemId
 	 */
 	function handleMouseLeave(itemId) {
+		// DISABLED: Let dropdowns stay open until manually closed
 		// Only close if leaving the currently active dropdown's container
-		if (activeDropdown === itemId) {
-			closeTimeout = setTimeout(() => {
-				activeDropdown = null;
-				closeTimeout = null;
-			}, 200);
-		}
+		// Don't auto-close for items with sliders (like zoom)
+		// const item = items.find(i => i.id === itemId);
+		// if (activeDropdown === itemId && !item?.hasSlider) {
+		// 	closeTimeout = setTimeout(() => {
+		// 		activeDropdown = null;
+		// 		closeTimeout = null;
+		// 	}, 200);
+		// }
 	}
 
 	/**
@@ -154,6 +164,34 @@ Usage:
 		};
 	});
 
+	// Close dropdown when clicking outside the dock
+	$effect(() => {
+		console.log('Click-outside effect running, activeDropdown:', activeDropdown);
+		if (!activeDropdown) return;
+
+		function handleClickOutside(e) {
+			console.log('handleClickOutside called');
+			// Close if clicking outside the dock
+			if (!e.target.closest('.dock')) {
+				console.log('Closing dropdown from click outside');
+				activeDropdown = null;
+			}
+		}
+
+		// Add listener on next tick to avoid catching the same click that opened it
+		console.log('Setting up click-outside listener in 10ms');
+		const timeout = setTimeout(() => {
+			console.log('Adding click-outside listener now');
+			document.addEventListener('mousedown', handleClickOutside, true);
+		}, 10);
+
+		return () => {
+			console.log('Cleaning up click-outside listener');
+			clearTimeout(timeout);
+			document.removeEventListener('mousedown', handleClickOutside, true);
+		};
+	});
+
 	/**
 	 * Draggable action for dock repositioning
 	 * @type {import('svelte/action').Action<HTMLElement, { onPositionChange: (pos: string) => void, currentPosition: string }>}
@@ -162,9 +200,7 @@ Usage:
 		const { onPositionChange, currentPosition } = options;
 
 		let dragState = {
-			isDragging: false,
-			clickCount: 0,
-			clickTimer: null
+			isDragging: false
 		};
 
 		/**
@@ -199,21 +235,12 @@ Usage:
 		}
 
 		/**
-		 * Handle mouse down for double-click detection
+		 * Handle right-click to start drag
 		 * @param {MouseEvent} e
 		 */
-		function handleMouseDown(e) {
-			dragState.clickCount++;
-
-			if (dragState.clickCount === 1) {
-				dragState.clickTimer = setTimeout(() => {
-					dragState.clickCount = 0;
-				}, 300);
-			} else if (dragState.clickCount === 2) {
-				clearTimeout(dragState.clickTimer);
-				dragState.clickCount = 0;
-				startDrag(e);
-			}
+		function handleContextMenu(e) {
+			e.preventDefault();
+			startDrag(e);
 		}
 
 		/**
@@ -262,16 +289,13 @@ Usage:
 			document.removeEventListener('mouseup', handleMouseUp);
 		}
 
-		// Add event listener directly
-		node.addEventListener('mousedown', handleMouseDown);
+		// Add event listener for right-click
+		node.addEventListener('contextmenu', handleContextMenu);
 
 		// Return cleanup function
 		return {
 			destroy() {
-				node.removeEventListener('mousedown', handleMouseDown);
-				if (dragState.clickTimer) {
-					clearTimeout(dragState.clickTimer);
-				}
+				node.removeEventListener('contextmenu', handleContextMenu);
 				// Clean up document listeners if still active
 				document.removeEventListener('mousemove', handleMouseMove);
 				document.removeEventListener('mouseup', handleMouseUp);
@@ -280,14 +304,11 @@ Usage:
 	}
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div 
-	class="dock dock--{position}" 
-	onclick={closeDropdown}
-	use:draggableAction={{ 
+<div
+	class="dock dock--{position}"
+	use:draggableAction={{
 		onPositionChange: (newPos) => position = newPos,
-		currentPosition: position 
+		currentPosition: position
 	}}
 >
 	{#each items as item (item.id)}
@@ -301,8 +322,14 @@ Usage:
 				class="dock-item"
 				class:dock-item--active={activeDropdown === item.id}
 				onclick={(e) => {
+					console.log('Dock button onclick fired for:', item.id);
 					e.stopPropagation();
 					toggleDropdown(item.id);
+				}}
+				onmousedown={(e) => {
+					console.log('Dock button mousedown fired for:', item.id);
+					e.stopPropagation();
+					e.preventDefault();
 				}}
 				title={item.label}
 			>
@@ -322,8 +349,13 @@ Usage:
 
 			{#if activeDropdown === item.id}
 				{#if item.hasSlider}
-					<div class="slider-container slider-container--{position}">
-						<Slider 
+					<!-- svelte-ignore a11y_click_events_have_key_events -->
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div
+						class="slider-container slider-container--{position}"
+						onclick={(e) => e.stopPropagation()}
+					>
+						<Slider
 							bind:value={zoomLevel}
 							min={0.1}
 							max={3}
@@ -369,10 +401,10 @@ Usage:
 		--dock-icon-size: 1rem;
 		--dock-padding-block: 0.3rem;
 		--dock-padding-inline: 0.3rem;
-		--dock-border-radius: 10rem;
+		--dock-border-radius: 30rem;
 		--dock-gap: 0.375rem;
 		--dropdown-min-width: 11.25rem; /* 180px */
-		--dropdown-max-width: 18.75rem; /* 300px */
+		--dropdown-max-width: 12rem; /* 300px */
 		--slider-track-thickness: 0.25rem;
 		--slider-thumb-size: 1rem;
 	}
@@ -381,30 +413,59 @@ Usage:
 		display: flex;
 		gap: var(--dock-gap);
 		padding: var(--dock-padding-inline);
-		background: rgba(255, 255, 255, 0.1);
+		background: rgba(0, 0, 0, 0.5);
 		backdrop-filter: blur(10px);
-		border-radius: var(--dock-border-radius);
+		border-radius: 1rem;
 		border: 1px solid rgba(255, 255, 255, 0.2);
 		opacity: 0.3;
 		transition: opacity 0.3s ease;
+		z-index:100;
+		overflow: visible;
 	}
 
 	.dock:hover {
-		opacity: 1;
+		opacity: 0.9;
 	}
 
-	.dock--bottom,
-	.dock--top {
+	.dock--bottom {
+		position: fixed;
+		bottom: 20px;
+		left: 50%;
+		transform: translateX(-50%);
 		flex-direction: row;
 	}
 
-	.dock--left,
-	.dock--right {
+	.dock--top {
+		position: fixed;
+		top: 20px;
+		left: 50%;
+		transform: translateX(-50%);
+		flex-direction: row;
+	}
+
+	.dock--left {
+		position: fixed;
+		left: 20px;
+		top: 50%;
+		transform: translateY(-50%);
 		flex-direction: column;
+		--dock-icon-size: 0.875rem; /* Smaller icons */
+		--dock-gap: 0.25rem; /* Smaller gap */
+	}
+
+	.dock--right {
+		position: fixed;
+		right: 20px;
+		top: 50%;
+		transform: translateY(-50%);
+		flex-direction: column;
+		--dock-icon-size: 0.875rem; /* Smaller icons */
+		--dock-gap: 0.25rem; /* Smaller gap */
 	}
 
 	.dock-item-container {
 		position: relative;
+		overflow: visible;
 	}
 
 	.dock-item {
@@ -413,7 +474,8 @@ Usage:
 		gap: var(--dock-gap);
 		padding: var(--dock-padding-block) var(--dock-padding-inline);
 		border-radius: var(--dock-border-radius);
-		color: white;
+		color: rgb(86, 86, 86);
+		margin: 0rem 0.5rem 0rem;
 		cursor: pointer;
 		transition: all 0.2s ease;
 		font-size: 0.875rem; /* 14px */
@@ -422,29 +484,35 @@ Usage:
 
 	.dock-item:hover {
 		background: rgba(255, 255, 255, 0.2);
-		transform: translateY(-2px);
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 	}
 
 	.dock-item:active,
 	.dock-item--active {
 		transform: translateY(0);
-		background: rgba(255, 255, 255, 0.3);
-		border-color: rgba(255, 255, 255, 0.4);
+		background: rgba(80, 80, 80, 0.3);
+		border-color: rgba(89, 89, 89, 0.4);
+		border-radius:var(--dock-border-radius);
+	}
+
+	/* Reduce horizontal margin and padding for left/right docks to make them skinnier */
+	.dock--left .dock-item,
+	.dock--right .dock-item {
+		margin: 0.5rem 0.1rem;
+		padding: 0.2rem; /* Smaller padding than horizontal docks */
 	}
 
 	/* Dropdown Styles */
 	.dropdown {
 		position: absolute;
-		background: rgba(255, 255, 255, 0.15);
-		backdrop-filter: blur(15px);
-		border: 1px solid rgba(255, 255, 255, 0.3);
-		border-radius: var(--dock-border-radius);
+		background: rgba(0, 0, 0, 0.5);
+		backdrop-filter: blur(10px);
+		border-radius: 1rem;
 		padding: var(--dock-gap);
 		/* Dynamic: responsive width with min/max constraints */
 		width: clamp(var(--dropdown-min-width), max-content, var(--dropdown-max-width));
-		z-index: 1000;
-		opacity: 0;
+		z-index: 10000;
+		opacity: 1;
 		animation: dropdownFadeIn 0.2s ease forwards;
 	}
 
@@ -541,9 +609,8 @@ Usage:
 		width: 100%;
 		padding: 8px 12px;
 		background: transparent;
-		border: none;
-		border-radius: 6px;
-		color: white;
+		border-radius: var(--dock-border-radius);
+		color: rgb(255, 255, 255);
 		cursor: pointer;
 		transition: background-color 0.15s ease;
 		font-size: 13px;
@@ -551,7 +618,7 @@ Usage:
 	}
 
 	.dropdown-item:hover {
-		background: rgba(255, 255, 255, 0.2);
+		background: rgba(75, 75, 75, 0.2);
 	}
 
 	.dropdown-item__icon {
@@ -565,7 +632,7 @@ Usage:
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		color: white; /* This sets the stroke color via currentColor */
+		color: rgb(52, 52, 52); /* This sets the stroke color via currentColor */
 	}
 
 	.dropdown-item__icon--img {
@@ -588,7 +655,7 @@ Usage:
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		color: white; /* This sets the stroke color via currentColor */
+		color: rgb(73, 73, 73); /* This sets the stroke color via currentColor */
 	}
 
 	.dock-item__icon--img {
@@ -607,16 +674,16 @@ Usage:
 	/* Slider container styles */
 	.slider-container {
 		position: absolute;
-		background: rgba(255, 255, 255, 0.15);
-		backdrop-filter: blur(15px);
-		border: 1px solid rgba(255, 255, 255, 0.3);
-		border-radius: 30px;
+		background: rgba(0, 0, 0, 0.5);
+		backdrop-filter: blur(10px);
+		border-radius: 0.7rem;
 		padding: 0.25rem;
 		z-index: 1000;
 		opacity: 0;
 		animation: dropdownFadeIn 0.2s ease forwards;
 		display: flex;
 		align-items: center;
+		justify-content: center;
 		gap: 0.25rem;
 	}
 
@@ -625,7 +692,7 @@ Usage:
 		bottom: 100%;
 		left: 50%;
 		transform: translateX(-50%);
-		margin-bottom: var(--dock-gap);
+		margin-bottom: 8px;
 		flex-direction: column;
 		/* Dynamic: inherit width from parent button, with minimum for usability */
 		width: 100%;
@@ -636,7 +703,7 @@ Usage:
 		top: 100%;
 		left: 50%;
 		transform: translateX(-50%);
-		margin-top: var(--dock-gap);
+		margin-top: 8px;
 		flex-direction: column;
 		/* Dynamic: inherit width from parent button, with minimum for usability */
 		width: 100%;
@@ -647,7 +714,7 @@ Usage:
 		left: 100%;
 		top: 50%;
 		transform: translateY(-50%);
-		margin-left: var(--dock-gap);
+		margin-left: 8px;
 		flex-direction: row;
 		/* Container width: 5rem slider + space for percentage display */
 		width: max-content;
@@ -657,7 +724,7 @@ Usage:
 		right: 100%;
 		top: 50%;
 		transform: translateY(-50%);
-		margin-right: var(--dock-gap);
+		margin-right: 8px;
 		flex-direction: row;
 		/* Container width: 5rem slider + space for percentage display */
 		width: max-content;
@@ -677,10 +744,19 @@ Usage:
 		.dock-item__label {
 			display: none;
 		}
-		
-		.dock-item {
-			/* Ensure minimum touch target size on mobile */
+
+		.dock--bottom .dock-item,
+		.dock--top .dock-item {
+			/* Ensure minimum touch target size on mobile for horizontal docks */
 			min-width: 2.5rem; /* 40px */
+			justify-content: center;
+		}
+
+		.dock--left .dock-item,
+		.dock--right .dock-item {
+			/* Keep vertical docks skinny on mobile */
+			min-width: auto;
+			min-height: 2.5rem; /* 40px - minimum touch target */
 			justify-content: center;
 		}
 	}

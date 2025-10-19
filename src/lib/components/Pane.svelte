@@ -1,7 +1,8 @@
 <script lang="ts">
     import { getContext, onMount } from "svelte";
-  import { cubicIn, elasticOut, quartOut } from "svelte/easing";
-  import { Tween } from "svelte/motion";
+    import { cubicIn, elasticOut, quartOut } from "svelte/easing";
+    import { Tween } from "svelte/motion";
+    import { ChunkManager } from "$lib/framework/chunkManager";
 
     const PaneState = {
 		Default: "Default",
@@ -14,6 +15,7 @@
     let paneData: PaneData = $state(data);
     let paneState: PaneStateKey = $state(PaneState.Default);
     let appState: AppState = getContext("appstate");
+    let chunkManager: ChunkManager = getContext("chunkManager");
 
 
     let unscaledWidth = $derived(paneData.paneSize[0] * appState.unitToPixelRatio.current);
@@ -25,6 +27,8 @@
     let shouldCancelPointerEvents = $derived((appState.state == "MovingPane") ? "pointer-events-none" : "");
     let resizing = $state(0);
     let mouseDelta = [0, 0];
+    let persistenceTimeout: NodeJS.Timeout | null = null;
+    let isSelected = $derived(appState.isSelected(paneData.uuid));
 
     let scale = new Tween(1, {
         easing: quartOut,
@@ -48,6 +52,14 @@
         if (!active) {
             return;
         }
+        
+        // Handle shift-click selection
+        if (event.shiftKey) {
+            appState.toggleSelection(paneData.uuid);
+            event.stopPropagation();
+            return;
+        }
+        
         let resizeMargin = 10;
         if (event.x > xOffset + width - resizeMargin) {
             console.log("right")
@@ -79,15 +91,44 @@
         event.stopPropagation();
     }
 
+    function triggerPersistence() {
+        // Clear any existing timeout
+        if (persistenceTimeout) {
+            clearTimeout(persistenceTimeout);
+        }
+        
+        // Debounce persistence to avoid too many storage writes
+        persistenceTimeout = setTimeout(() => {
+            try {
+                // Update the pane data in the chunk manager's tracking
+                const chunkHolder = chunkManager.loadedChunks.get(paneData.chunkCoords[0])?.get(paneData.chunkCoords[1]);
+                if (chunkHolder) {
+                    chunkHolder.paneData.set(paneData.uuid, paneData);
+                    // Trigger persistence to storage
+                    chunkManager.persistChunkToStorage(paneData.chunkCoords, chunkHolder);
+                }
+            } catch (error) {
+                console.warn('Failed to persist pane changes:', error);
+            }
+        }, 100); // 100ms debounce
+    }
+
     function onmouseup() {
         dragging = false;
         resizing = 0;
         scale.set(1.02);
+        
+        // Trigger persistence when dragging/resizing ends
+        triggerPersistence();
     }
     function onmousemove(event: MouseEvent) {
         if (dragging) {
             xOffset += event.movementX;
             yOffset += event.movementY;
+            
+            // Update the underlying paneData coordinates
+            paneData.paneCoords[0] = xOffset / appState.unitToPixelRatio.current;
+            paneData.paneCoords[1] = yOffset / appState.unitToPixelRatio.current;
             return;
         }
 
@@ -95,21 +136,29 @@
             case 1:
                 yOffset += event.movementY;
                 unscaledHeight += event.movementY;
+                paneData.paneCoords[1] = yOffset / appState.unitToPixelRatio.current;
+                paneData.paneSize[1] = height / appState.unitToPixelRatio.current;
                 break;
             case 2: 
                 //xOffset += event.movementX;
                 unscaledWidth += event.movementX;
+                paneData.paneSize[0] = width / appState.unitToPixelRatio.current;
                 break;
             case 3: 
                 //yOffset += event.movementY;
                 unscaledHeight += event.movementY;
+                paneData.paneSize[1] = height / appState.unitToPixelRatio.current;
+
                 break;
             case 4: 
                 xOffset += event.movementX;
                 unscaledWidth -= event.movementX;
+                paneData.paneCoords[0] = xOffset / appState.unitToPixelRatio.current;
+                paneData.paneSize[0] = width / appState.unitToPixelRatio.current;
                 break;
         }
     }
+
 
     // PDF preview state (use $state so Svelte reactivity updates the template)
 	let pdfUrl = $state<string | null>(null);
@@ -156,7 +205,7 @@
     pane-{paneData.uuid}
     absolute
     bg-slate-500
-
+    {isSelected ? 'ring-4 ring-blue-500 ring-opacity-75' : ''}
     "
     {onmouseenter}
     {onmouseleave}
