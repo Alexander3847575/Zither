@@ -4,14 +4,14 @@ A draggable dock component with built-in items for common application functions.
 Includes: Zoom, New Pane, World Map, and Settings buttons with dropdown menus.
 
 Features:
-- Draggable repositioning (double-click and drag)
+- Draggable repositioning (double-click on dock and drag)
 - Auto-closing dropdowns on mouse leave
 - Transient appearance (30% opacity, full on hover)
 - Smart snap zones (top, bottom, left, right)
 
 Usage:
   ```html
-  <Dock bind:position onItemClick={(id, label) => console.log(`${label} clicked`)} />
+  <Dock bind:position bind:doubleClickEligible onItemClick={(id, label) => console.log(`${label} clicked`)} />
   ```
 -->
 <script>
@@ -37,8 +37,8 @@ Usage:
 	 * @property {boolean} [hasSlider] - Whether this item shows a slider instead of dropdown
 	 */
 
-	/** @type {{ position?: 'bottom' | 'top' | 'left' | 'right', onItemClick?: (id: string, label: string) => void, onZoomChange?: (value: number) => void }} */
-	let { position = $bindable('bottom'), onItemClick, onZoomChange } = $props();
+	/** @type {{ position?: 'bottom' | 'top' | 'left' | 'right', onItemClick?: (id: string, label: string) => void, onZoomChange?: (value: number) => void, doubleClickEligible?: boolean }} */
+	let { position = $bindable('bottom'), onItemClick, onZoomChange, doubleClickEligible = $bindable(false) } = $props();
 
 	let activeDropdown = $state(/** @type {string | null} */ (null));
 	let closeTimeout = $state(/** @type {NodeJS.Timeout | null} */ (null));
@@ -237,12 +237,14 @@ Usage:
 		}
 
 		/**
-		 * Handle right-click to start drag
+		 * Handle double-click to start drag
 		 * @param {MouseEvent} e
 		 */
-		function handleContextMenu(e) {
-			e.preventDefault();
-			startDrag(e);
+		function handleDoubleClick(e) {
+			if (doubleClickEligible) {
+				e.preventDefault();
+				startDrag(e);
+			}
 		}
 
 		/**
@@ -291,13 +293,13 @@ Usage:
 			document.removeEventListener('mouseup', handleMouseUp);
 		}
 
-		// Add event listener for right-click
-		node.addEventListener('contextmenu', handleContextMenu);
+		// Add event listener for mouse down (to detect double-click)
+		node.addEventListener('mousedown', handleDoubleClick);
 
 		// Return cleanup function
 		return {
 			destroy() {
-				node.removeEventListener('contextmenu', handleContextMenu);
+				node.removeEventListener('mousedown', handleDoubleClick);
 				// Clean up document listeners if still active
 				document.removeEventListener('mousemove', handleMouseMove);
 				document.removeEventListener('mouseup', handleMouseUp);
