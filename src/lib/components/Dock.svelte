@@ -160,7 +160,7 @@ Usage:
 	 */
 	function draggableAction(node, options) {
 		const { onPositionChange, currentPosition } = options;
-		
+
 		let dragState = {
 			isDragging: false,
 			clickCount: 0,
@@ -176,13 +176,13 @@ Usage:
 		function calculateSnapZone(mouseX, mouseY) {
 			const { innerWidth: vw, innerHeight: vh } = window;
 			const threshold = Math.max(120, Math.min(vw, vh) * 0.12);
-			
+
 			// Edge zones (exclusive, highest priority)
 			if (mouseY <= threshold) return 'top';
 			if (mouseY >= vh - threshold) return 'bottom';
 			if (mouseX <= threshold) return 'left';
 			if (mouseX >= vw - threshold) return 'right';
-			
+
 			// Center area - find closest edge
 			const distances = {
 				top: mouseY,
@@ -190,9 +190,9 @@ Usage:
 				left: mouseX,
 				right: vw - mouseX
 			};
-			
+
 			return Object.entries(distances)
-				.reduce((closest, [pos, dist]) => 
+				.reduce((closest, [pos, dist]) =>
 					dist < closest.distance ? { position: pos, distance: dist } : closest,
 					{ position: currentPosition || 'bottom', distance: Infinity }
 				).position;
@@ -204,7 +204,7 @@ Usage:
 		 */
 		function handleMouseDown(e) {
 			dragState.clickCount++;
-			
+
 			if (dragState.clickCount === 1) {
 				dragState.clickTimer = setTimeout(() => {
 					dragState.clickCount = 0;
@@ -223,10 +223,10 @@ Usage:
 		function startDrag(e) {
 			dragState.isDragging = true;
 			e.preventDefault();
-			
+
 			// Close any open dropdowns when starting drag
 			activeDropdown = null;
-			
+
 			document.addEventListener('mousemove', handleMouseMove);
 			document.addEventListener('mouseup', handleMouseUp);
 		}
@@ -237,7 +237,7 @@ Usage:
 		 */
 		function handleMouseMove(e) {
 			if (!dragState.isDragging) return;
-			
+
 			const newPosition = calculateSnapZone(e.clientX, e.clientY);
 			if (onPositionChange) {
 				onPositionChange(newPosition);
@@ -250,22 +250,24 @@ Usage:
 		 */
 		function handleMouseUp(e) {
 			if (!dragState.isDragging) return;
-			
+
 			dragState.isDragging = false;
-			
+
 			const finalPosition = calculateSnapZone(e.clientX, e.clientY);
 			if (onPositionChange) {
 				onPositionChange(finalPosition);
 			}
-			
+
 			document.removeEventListener('mousemove', handleMouseMove);
 			document.removeEventListener('mouseup', handleMouseUp);
 		}
 
-		$effect(() => {
-			node.addEventListener('mousedown', handleMouseDown);
-			
-			return () => {
+		// Add event listener directly
+		node.addEventListener('mousedown', handleMouseDown);
+
+		// Return cleanup function
+		return {
+			destroy() {
 				node.removeEventListener('mousedown', handleMouseDown);
 				if (dragState.clickTimer) {
 					clearTimeout(dragState.clickTimer);
@@ -273,8 +275,8 @@ Usage:
 				// Clean up document listeners if still active
 				document.removeEventListener('mousemove', handleMouseMove);
 				document.removeEventListener('mouseup', handleMouseUp);
-			};
-		});
+			}
+		};
 	}
 </script>
 
