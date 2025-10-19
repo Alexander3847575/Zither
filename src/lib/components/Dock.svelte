@@ -40,8 +40,8 @@ Usage:
 	/** @type {{ position?: 'bottom' | 'top' | 'left' | 'right', onItemClick?: (id: string, label: string) => void, onZoomChange?: (value: number) => void }} */
 	let { position = $bindable('bottom'), onItemClick, onZoomChange } = $props();
 
-	let activeDropdown = $state(null);
-	let closeTimeout = $state(null);
+	let activeDropdown = $state(/** @type {string | null} */ (null));
+	let closeTimeout = $state(/** @type {NodeJS.Timeout | null} */ (null));
 	let zoomLevel = $state(1); // Zoom level from 0.1 to 3.0
 
 	// Determine slider orientation based on dock position
@@ -49,8 +49,9 @@ Usage:
 		return (position === 'left' || position === 'right') ? 'horizontal' : 'vertical';
 	});
 
-	// Handle zoom level changes
+	// Handle zoom level changes and apply zoom to document
 	$effect(() => {
+		document.documentElement.style.setProperty('--app-zoom', zoomLevel.toString());
 		if (onZoomChange) {
 			onZoomChange(zoomLevel);
 		}
@@ -169,6 +170,7 @@ Usage:
 		console.log('Click-outside effect running, activeDropdown:', activeDropdown);
 		if (!activeDropdown) return;
 
+		/** @param {MouseEvent} e */
 		function handleClickOutside(e) {
 			console.log('handleClickOutside called');
 			// Close if clicking outside the dock
@@ -194,7 +196,7 @@ Usage:
 
 	/**
 	 * Draggable action for dock repositioning
-	 * @type {import('svelte/action').Action<HTMLElement, { onPositionChange: (pos: string) => void, currentPosition: string }>}
+	 * @type {import('svelte/action').Action<HTMLElement, { onPositionChange: (pos: 'bottom' | 'top' | 'left' | 'right') => void, currentPosition: 'bottom' | 'top' | 'left' | 'right' }>}
 	 */
 	function draggableAction(node, options) {
 		const { onPositionChange, currentPosition } = options;
@@ -207,7 +209,7 @@ Usage:
 		 * Calculate snap zone based on mouse position
 		 * @param {number} mouseX
 		 * @param {number} mouseY
-		 * @returns {string}
+		 * @returns {'bottom' | 'top' | 'left' | 'right'}
 		 */
 		function calculateSnapZone(mouseX, mouseY) {
 			const { innerWidth: vw, innerHeight: vh } = window;
@@ -502,11 +504,25 @@ Usage:
 		padding: 0.2rem; /* Smaller padding than horizontal docks */
 	}
 
+	/* Global zoom styling - applies to everything except the dock */
+	:global(body > *:not(.dock)) {
+		transform: scale(var(--app-zoom, 1));
+		transform-origin: top center;
+		transition: transform 0.2s ease;
+	}
+
+	/* Global zoom styling - applies to everything except the dock */
+	:global(body > *:not(.dock)) {
+		transform: scale(var(--app-zoom, 1));
+		transform-origin: top center;
+		transition: transform 0.2s ease;
+	}
+
 	/* Dropdown Styles */
 	.dropdown {
 		position: absolute;
-		background: rgba(0, 0, 0, 0.5);
-		backdrop-filter: blur(10px);
+		background: rgba(54, 54, 54, 0.9);
+		backdrop-filter: blur(15px);
 		border-radius: 1rem;
 		padding: var(--dock-gap);
 		/* Dynamic: responsive width with min/max constraints */
@@ -674,8 +690,8 @@ Usage:
 	/* Slider container styles */
 	.slider-container {
 		position: absolute;
-		background: rgba(0, 0, 0, 0.5);
-		backdrop-filter: blur(10px);
+		background: rgba(54, 54, 54, 0.9);
+		backdrop-filter: blur(15px);
 		border-radius: 0.7rem;
 		padding: 0.25rem;
 		z-index: 1000;
