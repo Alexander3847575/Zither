@@ -412,8 +412,6 @@ Usage:
 		align-items: center;
 		gap: var(--dock-gap);
 		padding: var(--dock-padding-block) var(--dock-padding-inline);
-		background: rgba(255, 255, 255, 0.1);
-		border: 1px solid rgba(255, 255, 255, 0.2);
 		border-radius: var(--dock-border-radius);
 		color: white;
 		cursor: pointer;
