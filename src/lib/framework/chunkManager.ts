@@ -1,16 +1,19 @@
 import Chunk from "$lib/components/Chunk.svelte";
 import Pane from "$lib/components/Pane.svelte";
 import { mount, unmount } from "svelte";
+import { storageManager } from "./storageManager";
 
 
 export class ChunkHolder {
     uuid: string;
     chunk: Chunk;
     panes: Map<string, Pane>;
+    paneData: Map<string, PaneData>; // Track the original pane data for storage
     constructor(uuid: string, chunk: Chunk, panes: Map<string, Pane>) {
         this.uuid = uuid;
         this.chunk = chunk;
         this.panes = panes;
+        this.paneData = new Map();
     }
 }
 
@@ -49,9 +52,27 @@ export class ChunkManager {
             return null;
         }
 
-        //if (Storage.get(coords) == null) TODO: Check if storage has space and if not load one
-        // TODO: Create storage fetch queue and scheduler; check if chunk is within current render range upon task handling
-        let chunkUUID = crypto.randomUUID();
+        // Check if chunk exists in storage first
+        let chunkUUID: string;
+        let storedChunkData: ChunkData | null = null;
+        
+        try {
+            storedChunkData = storageManager.loadChunk(coords);
+        } catch (error) {
+            console.warn('Failed to load chunk from storage:', error);
+        }
+
+        if (storedChunkData) {
+            // Use existing chunk UUID from storage
+            chunkUUID = storedChunkData.uuid;
+            console.log(`Loading existing chunk ${chunkUUID} at [${coords[0]}, ${coords[1]}] from storage`);
+        } else {
+            // Create new chunk UUID
+            chunkUUID = crypto.randomUUID();
+            console.log(`Creating new chunk ${chunkUUID} at [${coords[0]}, ${coords[1]}]`);
+        }
+
+        // Mount the chunk component
         let chunk = mount(Chunk, {
             target: this.parent,
             props: {
@@ -60,7 +81,21 @@ export class ChunkManager {
             }
         });
 
-        yMap!.set(coords[1], new ChunkHolder(chunkUUID, chunk, new Map()));
+        // Create chunk holder
+        let chunkHolder = new ChunkHolder(chunkUUID, chunk, new Map());
+        yMap!.set(coords[1], chunkHolder);
+
+        // If we loaded from storage, restore all the panes
+        if (storedChunkData && storedChunkData.panes && storedChunkData.panes.length > 0) {
+            console.log(`Restoring ${storedChunkData.panes.length} panes for chunk ${chunkUUID}`);
+            for (const paneData of storedChunkData.panes) {
+                try {
+                    await this.mountPane(coords, paneData);
+                } catch (error) {
+                    console.warn('Failed to restore pane:', paneData.uuid, error);
+                }
+            }
+        }
         
         return chunk;
     }
@@ -72,19 +107,43 @@ export class ChunkManager {
 
         if (!yMap!.has(coords[1])) 
             return;
-        // TODO: Save chunk to storage here
-        unmount(yMap!.get(coords[1])!.chunk);
+
+        let chunkHolder = yMap!.get(coords[1])!;
+        
+        // Save chunk to storage before unloading
+        try {
+            // Collect all pane data from this chunk
+            const paneDataArray: PaneData[] = Array.from(chunkHolder.paneData.values());
+
+            const chunkData: ChunkData = {
+                coords: coords,
+                uuid: chunkHolder.uuid,
+                panes: paneDataArray,
+                dimensions: undefined, // Could be calculated from chunk size
+                isLoaded: false, // About to be unloaded
+                lastAccessed: new Date()
+            };
+
+            storageManager.saveChunk(chunkData);
+            console.log(`Saved chunk ${chunkHolder.uuid} at [${coords[0]}, ${coords[1]}] with ${paneDataArray.length} panes to storage`);
+        } catch (error) {
+            console.warn('Failed to save chunk to storage:', error);
+        }
+
+        unmount(chunkHolder.chunk);
         yMap?.delete(coords[1]);
         
         if (yMap!.size == 0) 
             this.loadedChunks.delete(coords[0]);
-
     }
 
     async mountPane(chunkCoords: [number, number], data: PaneData) {
         let chunkHolder = this.loadedChunks.get(chunkCoords[0])?.get(chunkCoords[1]);
         if (chunkHolder == undefined)
             return;
+
+        // Store the pane data for persistence
+        chunkHolder.paneData.set(data.uuid, data);
 
         // Prefer adding the pane through the Chunk component so it becomes a real child and
         // inherits context set by ancestors. The mounted Chunk component exposes addPane.
@@ -95,6 +154,9 @@ export class ChunkManager {
                 // We don't have direct access to the Pane instance here (it's managed by Chunk),
                 // so store a marker object in the map for bookkeeping.
                 chunkHolder.panes.set(data.uuid, null as any);
+                
+                // Persist the updated chunk to storage immediately
+                await this.persistChunkToStorage(chunkCoords, chunkHolder);
                 return;
             }
         } catch (e) {
@@ -113,6 +175,32 @@ export class ChunkManager {
             }
         });
         chunkHolder.panes.set(data.uuid, pane);
+        
+        // Persist the updated chunk to storage immediately
+        await this.persistChunkToStorage(chunkCoords, chunkHolder);
+    }
+
+    /**
+     * Helper method to persist a chunk's current state to storage
+     */
+    private async persistChunkToStorage(coords: [number, number], chunkHolder: ChunkHolder) {
+        try {
+            const paneDataArray: PaneData[] = Array.from(chunkHolder.paneData.values());
+            
+            const chunkData: ChunkData = {
+                coords: coords,
+                uuid: chunkHolder.uuid,
+                panes: paneDataArray,
+                dimensions: undefined,
+                isLoaded: true,
+                lastAccessed: new Date()
+            };
+
+            storageManager.saveChunk(chunkData);
+            console.log(`Persisted chunk ${chunkHolder.uuid} at [${coords[0]}, ${coords[1]}] with ${paneDataArray.length} panes to storage`);
+        } catch (error) {
+            console.warn('Failed to persist chunk to storage:', error);
+        }
     }
 
     async movePane(uuid: string, oldCoords: [number, number], newCoords: [number, number]) {
@@ -123,6 +211,10 @@ export class ChunkManager {
         let chunkHolder = this.loadedChunks.get(chunkCoords[0])?.get(chunkCoords[1]);
         if (chunkHolder == undefined)
             return;
+
+        // Remove from pane data tracking
+        chunkHolder.paneData.delete(uuid);
+
         // If the pane was programmatically mounted we stored the instance in panes map.
         const paneInstance = chunkHolder.panes.get(uuid);
         if (paneInstance) {
@@ -132,6 +224,9 @@ export class ChunkManager {
                 console.warn('Failed to unmount pane instance', e);
             }
             chunkHolder.panes.delete(uuid);
+            
+            // Persist the updated chunk to storage
+            await this.persistChunkToStorage(chunkCoords, chunkHolder);
             return;
         }
 
@@ -140,6 +235,9 @@ export class ChunkManager {
             if (typeof chunkHolder.chunk?.removePane === 'function') {
                 chunkHolder.chunk.removePane(uuid);
                 chunkHolder.panes.delete(uuid);
+                
+                // Persist the updated chunk to storage
+                await this.persistChunkToStorage(chunkCoords, chunkHolder);
                 return;
             }
         } catch (e) {
@@ -150,6 +248,9 @@ export class ChunkManager {
         const target = document.querySelector(`.chunk-${chunkHolder.uuid}`);
         if (!target) return;
         // nothing else we can reliably do here
+        
+        // Still persist the updated chunk to storage even if we couldn't cleanly unmount
+        await this.persistChunkToStorage(chunkCoords, chunkHolder);
     }
 
 
@@ -243,3 +344,5 @@ export class ChunkManager {
     }
 
 }
+
+
