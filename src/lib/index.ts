@@ -10,3 +10,8 @@ export {
 	type PanePosition,
 	type LayoutResult
 } from './framework/paneLayout.js';
+
+// Export cluster management utilities
+export {
+    clusterManager
+} from './framework/clusterManager.svelte.js';

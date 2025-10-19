@@ -43,6 +43,52 @@
         return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
     }
 
+    // Create solid border color with no gradient
+    let solidBorderStyle = $derived(`5px solid ${borderColor}`);
+
+    // Debug logging for color changes
+    $effect(() => {
+        console.log(`🎨 Pane ${paneData.uuid} color changed:`, {
+            color: paneData.color,
+            borderColor: borderColor,
+            isSelected: isSelected
+        });
+    });
+
+    // Keep pane UI in sync with storage/cluster updates
+    onMount(() => {
+        function handleClusterChanged(e: Event) {
+            const detail = (e as CustomEvent).detail as any;
+            const paneIds: string[] | undefined = detail?.cluster?.paneIds;
+            if (paneIds && paneIds.includes(paneData.uuid)) {
+                // If this pane is affected, refresh its color from authoritative source if available
+                // For now, trust that storage already has the updated color and just trigger a reactive update
+                paneData = { ...paneData } as PaneData;
+            }
+        }
+
+        function handleStorageChanged(e: Event) {
+            const detail = (e as CustomEvent).detail as any;
+            const chunk = detail?.chunkData as { panes?: PaneData[] } | undefined;
+            if (chunk?.panes) {
+                const updated = chunk.panes.find(p => p.uuid === paneData.uuid);
+                if (updated && updated.color && updated.color !== paneData.color) {
+                    paneData.color = updated.color as [number, number, number, number];
+                    // Reassign to ensure reactivity
+                    paneData = { ...paneData } as PaneData;
+                }
+            }
+        }
+
+        window.addEventListener('cluster-changed', handleClusterChanged as EventListener);
+        window.addEventListener('storage-changed', handleStorageChanged as EventListener);
+
+        return () => {
+            window.removeEventListener('cluster-changed', handleClusterChanged as EventListener);
+            window.removeEventListener('storage-changed', handleStorageChanged as EventListener);
+        };
+    });
+
 
     function onmouseenter() {
         active = true;
@@ -204,15 +250,16 @@
     box-sizing: border-box;
     -moz-box-sizing: border-box;
     -webkit-box-sizing: border-box;
-    border: 5px solid {borderColor};
+    border: {solidBorderStyle};
     border-radius: 25px;
     overflow: hidden;
     z-index: 10;
+    background: #64748b;
+    background-image: none;
 	"
     class="
     pane-{paneData.uuid}
     absolute
-    bg-slate-500
     {isSelected ? 'ring-4 ring-blue-500 ring-opacity-75' : ''}
     "
     {onmouseenter}

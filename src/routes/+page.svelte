@@ -1,7 +1,10 @@
 <script lang="ts">
     import ChunkRoot from "$lib/components/ChunkRoot.svelte";
     import Dock from "$lib/components/Dock.svelte";
-  import RadialMenu from "$lib/components/RadialMenu.svelte";
+    import RadialMenu from "$lib/components/RadialMenu.svelte";
+    import WorldMap from "$lib/components/WorldMap.svelte";
+    import ContextMenu from "$lib/components/ContextMenu.svelte";
+    import { clusterManager } from "$lib/framework/clusterManager.svelte.js";
     import { setContext } from "svelte";
     import { cubicOut } from "svelte/easing";
     import { Tween } from "svelte/motion";
@@ -106,7 +109,13 @@
     // Listeners
     let clickTimer: NodeJS.Timeout;
     const doubleClickInterval = 100;
-    let doubleClickEligible = false;
+    let doubleClickEligible = $state(false);
+    let worldMapVisible = $state(false);
+    
+    // Context menu state
+    let contextMenuVisible = $state(false);
+    let contextMenuX = $state(0);
+    let contextMenuY = $state(0);
 
     let body = document.body;
 
@@ -131,7 +140,16 @@
     if (event.button === 0) {
         const target = event.target as Element;
         const clickedPane = target?.closest('[class*="pane-"]');
-        if (!clickedPane && appState.selectedPanes.size > 0) {
+        const clickedContextMenu = target?.closest('.context-menu');
+        
+        console.log('🖱️ Click-away check:', {
+            clickedPane: !!clickedPane,
+            clickedContextMenu: !!clickedContextMenu,
+            selectionCount: appState.selectedPanes.size
+        });
+        
+        if (!clickedPane && !clickedContextMenu && appState.selectedPanes.size > 0) {
+            console.log('❌ Clearing selection due to click-away');
             appState.clearSelection();
         }
     }
@@ -349,10 +367,120 @@
         updateGlobalOffset(appState.globalOffset, [0, 0], false);
     }
 
+    function handleDockItemClick(itemId: string, label: string): void {
+        console.log(`Dock item clicked: ${itemId} (${label})`);
+        
+        switch (itemId) {
+            case 'world-map':
+                worldMapVisible = !worldMapVisible;
+                break;
+            case 'auto-arrange':
+                // Future: implement auto-arrange functionality
+                console.log('Auto-arrange not yet implemented');
+                break;
+            case 'new-browser':
+                // Future: handle new browser pane
+                console.log('New browser pane not yet implemented');
+                break;
+            case 'new-file':
+                // Future: handle new file pane
+                console.log('New file pane not yet implemented');
+                break;
+            case 'theme':
+                // Future: handle theme change
+                console.log('Theme change not yet implemented');
+                break;
+            default:
+                console.warn('Unknown dock item:', itemId);
+        }
+    }
+
+    function handleWorldMapChunkClick(coords: [number, number]): void {
+        console.log('Navigating to chunk:', coords);
+        // Update the viewport position to center on the clicked chunk
+        appState.viewportPos = coords;
+        // Trigger smooth animation by updating global offset
+        updateGlobalOffset(appState.globalOffset, [0, 0], false);
+    }
+
+    // Context menu handlers
+    function handleRightClick(event: MouseEvent) {
+        const selectionCount = appState.getSelectionCount();
+        console.log('🖱️ Right-click detected:', { 
+            selectionCount, 
+            hasSelection: selectionCount > 0,
+            clientX: event.clientX,
+            clientY: event.clientY
+        });
+        
+        if (selectionCount > 0) {
+            event.preventDefault();
+            contextMenuX = event.clientX;
+            contextMenuY = event.clientY;
+            contextMenuVisible = true;
+            console.log('📋 Context menu opened at:', { x: contextMenuX, y: contextMenuY });
+        }
+    }
+    
+    function handleClusterConfirm(name: string) {
+        console.log('🎯 Context menu confirm clicked:', { name });
+        
+        const selectedPanes = appState.getSelectedPanes();
+        console.log('📋 Selected panes:', selectedPanes);
+        
+        const cluster = clusterManager.createClusterFromSelection(name, selectedPanes);
+        
+        if (cluster) {
+            appState.clearSelection();
+            console.log(`✅ Successfully created cluster "${name}" with ${cluster.paneIds.length} panes`);
+        } else {
+            console.error('❌ Failed to create cluster');
+        }
+    }
+    
+    function handleClusterCancel() {
+        // Optional: could clear selection on cancel if desired
+    }
+    
+    function handleClickOutside(event: MouseEvent) {
+        if (contextMenuVisible) {
+            const target = event.target as Element;
+            const isInsideContextMenu = target?.closest('.context-menu');
+            
+            console.log('🖱️ Click outside check:', {
+                contextMenuVisible,
+                target: target?.tagName,
+                isInsideContextMenu: !!isInsideContextMenu,
+                targetClasses: target?.className
+            });
+            
+            if (!isInsideContextMenu) {
+                console.log('❌ Closing context menu due to outside click');
+                contextMenuVisible = false;
+            }
+        }
+    }
+
 </script>
 
+<svelte:window oncontextmenu={handleRightClick} onclick={handleClickOutside} />
+
 <ChunkRoot></ChunkRoot>
-<Dock bind:doubleClickEligible={doubleClickEligible}></Dock>
+<Dock 
+    bind:doubleClickEligible={doubleClickEligible}
+    onItemClick={handleDockItemClick}
+    worldMapVisible={worldMapVisible}
+></Dock>
 {#if appState.state == "InteractMenu"}
     <RadialMenu></RadialMenu>
 {/if}
+<WorldMap bind:visible={worldMapVisible} onChunkClick={handleWorldMapChunkClick} currentViewportPos={appState.viewportPos} />
+
+<!-- Context Menu -->
+<ContextMenu 
+    bind:visible={contextMenuVisible}
+    x={contextMenuX}
+    y={contextMenuY}
+    onConfirm={handleClusterConfirm}
+    onCancel={handleClusterCancel}
+/>

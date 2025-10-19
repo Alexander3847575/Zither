@@ -66,6 +66,15 @@ declare global {
 		isLoaded?: boolean,           // Optional: Loading state
 		lastAccessed?: Date,          // Optional: For caching/cleanup
 	}
+
+	export interface Cluster {
+		id: string,                    // Unique identifier for the cluster
+		label: string,                 // Human-readable label for the cluster
+		paneIds: string[],            // Array of pane UUIDs belonging to this cluster
+		color?: [number, number, number, number], // Optional: RGBA color for visual representation
+		createdAt?: Date,             // Optional: When the cluster was created
+		updatedAt?: Date,             // Optional: When the cluster was last updated
+	}
 	
 	export const PaneState = {
 		Default: "Default",
