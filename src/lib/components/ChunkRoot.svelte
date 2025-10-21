@@ -1,40 +1,49 @@
 <script lang="ts">
-    import { getContext, setContext } from "svelte";
-    import { ChunkManager } from "$lib/framework/chunkManager";
+    import { getContext } from "svelte";
+    import type { ChunkManager } from "$lib/framework/chunkManager";
 
-    const body = document.body;
-    const mountPoint = (body.querySelector('#main-mount') instanceof HTMLElement) ? (body.getElementsByClassName("main-mount").item(0) as HTMLElement) : body;
-    // (body.getElementsByClassName("main-mount").item(0) instanceof HTMLElement) ? (body.getElementsByClassName("main-mount").item(0) as HTMLElement) : body;
-
-    // place files you want to import through the `$lib` alias in this folder.
+    // Get instances from parent context
     let appState: AppState = getContext('appstate');
-    const chunkManager: ChunkManager = new ChunkManager(mountPoint!);
-    setContext('chunkManager', chunkManager);
-    console.log("Initialized chunk manager.");
+    const chunkManager: ChunkManager = getContext('chunkManager');
+    console.log("Retrieved chunk manager from context.");
 
     $effect(() => {
         chunkManager.renderChunks(appState.viewportPos, 10);
     });
 
     document.addEventListener("keydown", (event) => {
-    const key = event.key; // Get the key pressed
-    if (key === "n") {
-        chunkManager.mountPane(appState.viewportPos, {
-            uuid: crypto.randomUUID(),
-            paneType: "pdf",
-            data: {"src": ""},
-            chunkCoords: appState.viewportPos,
-            paneCoords: [1, 1],
-            paneSize: [5, 3],
-            semanticTags: "",
-            color: [200, 200, 200, 120],
-        });
-    } else if (key === "d") {
-        chunkManager.unmountPane(appState.activePane, appState.viewportPos);
-    }else if (event.ctrlKey && key === "s") {
-    event.preventDefault(); // Prevent default browser behavior
-    console.log("Ctrl + S was pressed!");
-    }
+        // Check if the user is typing in an input field, textarea, or contenteditable element
+        const target = event.target as HTMLElement;
+        const isTyping = target && (
+            target.tagName === 'INPUT' || 
+            target.tagName === 'TEXTAREA' || 
+            target.contentEditable === 'true' ||
+            target.closest('input, textarea, [contenteditable="true"]')
+        );
+        
+        // If user is typing, don't process keyboard shortcuts
+        if (isTyping) {
+            return;
+        }
+        
+        const key = event.key; // Get the key pressed
+        if (key === "n") {
+            chunkManager.mountPane(appState.viewportPos, {
+                uuid: crypto.randomUUID(),
+                paneType: "pdf",
+                data: {"src": ""},
+                chunkCoords: appState.viewportPos,
+                paneCoords: [1, 1],
+                paneSize: [5, 3],
+                semanticTags: "",
+                color: [200, 200, 200, 120],
+            });
+        } else if (key === "d") {
+            chunkManager.unmountPane(appState.activePane, appState.viewportPos);
+        } else if (event.ctrlKey && key === "s") {
+            event.preventDefault(); // Prevent default browser behavior
+            console.log("Ctrl + S was pressed!");
+        }
     });
 </script>
 

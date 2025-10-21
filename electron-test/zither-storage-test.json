@@ -1,12 +1,72 @@
 {
-	"zither_coordinates": {
-		"first": {
-			"x": 10,
-			"y": 20
-		},
-		"second": {
-			"x": 30,
-			"y": 40
-		}
+	"2,-3": {
+		"coords": [
+			2,
+			-3
+		],
+		"uuid": "complex-test-chunk",
+		"panes": [
+			{
+				"uuid": "pane-text-1",
+				"paneType": "text",
+				"data": {
+					"content": "Hello World!",
+					"fontSize": 14
+				},
+				"paneCoords": [
+					1,
+					1
+				],
+				"paneSize": [
+					3,
+					2
+				],
+				"semanticTags": "greeting text",
+				"color": [
+					255,
+					100,
+					50,
+					255
+				]
+			},
+			{
+				"uuid": "pane-image-1",
+				"paneType": "image",
+				"data": {
+					"src": "/path/to/image.jpg",
+					"alt": "Test image"
+				},
+				"paneCoords": [
+					4,
+					1
+				],
+				"paneSize": [
+					2,
+					3
+				],
+				"semanticTags": "visual content",
+				"color": [
+					0,
+					255,
+					128,
+					200
+				]
+			}
+		],
+		"dimensions": [
+			1470,
+			735
+		],
+		"isLoaded": true,
+		"lastAccessed": "2024-10-19T22:00:00.000Z"
+	},
+	"0,0": {
+		"coords": [
+			0,
+			0
+		],
+		"uuid": "origin-chunk",
+		"panes": [],
+		"isLoaded": false
 	}
 }
