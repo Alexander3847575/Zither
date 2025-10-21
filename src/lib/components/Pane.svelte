@@ -3,7 +3,7 @@
     import { cubicIn, elasticOut, quartOut } from "svelte/easing";
     import { Tween } from "svelte/motion";
     import { marked }from 'marked';
-  import type { ChunkManager } from "$lib/framework/chunkManager";
+    import type { ChunkManager } from "$lib/framework/chunkManager";
 
     const PaneState = {
 		Default: "Default",
@@ -164,6 +164,22 @@
                 paneData.paneCoords[0] = xOffset / appState.unitToPixelRatio.current;
                 paneData.paneSize[0] = width / appState.unitToPixelRatio.current;
                 break;
+        }
+    }
+
+    function onPaneWidthInput(e: Event) {
+        const v = Number((e.target as HTMLInputElement).value);
+        if (!Number.isNaN(v) && v > 0) {
+            paneData.paneSize[0] = v;
+            triggerPersistence();
+        }
+    }
+
+    function onPaneHeightInput(e: Event) {
+        const v = Number((e.target as HTMLInputElement).value);
+        if (!Number.isNaN(v) && v > 0) {
+            paneData.paneSize[1] = v;
+            triggerPersistence();
         }
     }
 
@@ -465,9 +481,16 @@
         {:else}
             <!-- PDF upload input -->
             <div class="block gap-2">
+                <!-- Pane size inputs -->
+                <div class="mt-5 mx-60 flex items-center">
+                    <label class="text-sm text-gray-100"></label>
+                    <input type="number" min="1" class="px-2 py-1 rounded bg-slate-500 text-gray-50 w-20" value={paneData.paneSize[0]} oninput={onPaneWidthInput} />
+                    <label class="text-sm text-gray-100"></label>
+                    <input type="number" min="1" class="px-2 py-1 rounded bg-slate-500 text-gray-50 w-20" value={paneData.paneSize[1]} oninput={onPaneHeightInput} />
+                </div>
                 <div class="grow justify-center items-center">
                     <label for="pdf-input-{paneData.uuid}" class="text-sm block mx-50">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="{width/2}" height="{width/2}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-file"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="{width/3}" height="{width/3}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-file"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /></svg>
                     </label>
                     <input 
                     id="pdf-input-{paneData.uuid}"
@@ -478,7 +501,9 @@
                 </div>
                 <!-- URL loader -->
                 <input type="text" placeholder="https://example.com" class="px-2 py-1 rounded bg-slate-500 text-gray-50" value={urlInput} oninput={onUrlInput} onkeydown={onUrlKeydown} />
+                
             </div>
+
         {/if}
     </div>
 </div>
